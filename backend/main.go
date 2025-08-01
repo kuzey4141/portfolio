@@ -6,32 +6,25 @@ import (
 	"log"      // Loglama için
 	"net/http" // HTTP server için
 
-	"portfolio/about"    // about paketini import ettik
-	"portfolio/contact"  // contact paketini import ettik
+	"portfolio/about"   // about paketini import ettik
+	"portfolio/contact" // contact paketini import ettik
+	"portfolio/db"
 	"portfolio/home"     // home paketini import ettik
 	"portfolio/projects" // projects paketini import ettik
 	"portfolio/user"     // user paketini import ettik
-
-	"github.com/jackc/pgx/v5" // pgx PostgreSQL kütüphanesi
 )
 
 func main() {
-	// Veritabanı bağlantı stringi (kendi bilgilerine göre düzenle)
-	connStr := "postgres://postgres:6303523@localhost:5432/portfolio?sslmode=disable"
 
-	// Veritabanına bağlan
-	conn, err := pgx.Connect(context.Background(), connStr)
-	if err != nil {
-		log.Fatalf("Veritabanına bağlanırken hata: %v", err) // Bağlantı hatası varsa programı durdur
-	}
-	defer conn.Close(context.Background()) // Program kapanınca bağlantıyı kapat
+	db.ConnectDB()
+	defer db.Conn.Close(context.Background()) // Program kapanınca bağlantıyı kapat
 
 	// Her pakete veritabanı bağlantısını set et
-	home.SetDB(conn)     // home paketine bağlantı
-	about.SetDB(conn)    // about paketine bağlantı
-	projects.SetDB(conn) // projects paketine bağlantı
-	contact.SetDB(conn)  // contact paketine bağlantı
-	user.SetDB(conn)     // user paketine bağlantı
+	home.SetDB(db.Conn)     // home paketine bağlantı
+	about.SetDB(db.Conn)    // about paketine bağlantı
+	projects.SetDB(db.Conn) // projects paketine bağlantı
+	contact.SetDB(db.Conn)  // contact paketine bağlantı
+	user.SetDB(db.Conn)     // user paketine bağlantı
 
 	// HTTP endpointlerini tanımla (GET için)
 	http.HandleFunc("/api/home", home.GetHomes)            // home verilerini çekmek için
