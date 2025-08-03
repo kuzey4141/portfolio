@@ -1,60 +1,55 @@
-package main // Ana paket
+package main
 
 import (
-	"context"  // Veritabanı işlemleri için context paketi
-	"fmt"      // Konsola yazdırmak için
-	"log"      // Loglama için
-	"net/http" // HTTP server için
+    "portfolio/about"
+    "portfolio/contact"
+    "portfolio/db"
+    "portfolio/home"
+    "portfolio/projects"
+    "portfolio/user"
 
-	"portfolio/about"   // about paketini import ettik
-	"portfolio/contact" // contact paketini import ettik
-	"portfolio/db"
-	"portfolio/home"     // home paketini import ettik
-	"portfolio/projects" // projects paketini import ettik
-	"portfolio/user"     // user paketini import ettik
+    "github.com/gin-gonic/gin"
 )
 
 func main() {
+    db.ConnectDB()
+    defer db.Conn.Close(context.Background())
 
-	db.ConnectDB()
-	defer db.Conn.Close(context.Background()) // Program kapanınca bağlantıyı kapat
+    home.SetDB(db.Conn)
+    about.SetDB(db.Conn)
+    projects.SetDB(db.Conn)
+    contact.SetDB(db.Conn)
+    user.SetDB(db.Conn)
 
-	// Her pakete veritabanı bağlantısını set et
-	home.SetDB(db.Conn)     // home paketine bağlantı
-	about.SetDB(db.Conn)    // about paketine bağlantı
-	projects.SetDB(db.Conn) // projects paketine bağlantı
-	contact.SetDB(db.Conn)  // contact paketine bağlantı
-	user.SetDB(db.Conn)     // user paketine bağlantı
+    r := gin.Default()
 
-	// HTTP endpointlerini tanımla (GET için)
-	http.HandleFunc("/api/home", home.GetHomes)            // home verilerini çekmek için
-	http.HandleFunc("/api/about", about.GetAbouts)         // about verilerini çekmek için
-	http.HandleFunc("/api/projects", projects.GetProjects) // projects verilerini çekmek için
-	http.HandleFunc("/api/contact", contact.GetContacts)   // contact verilerini çekmek için
-	http.HandleFunc("/api/user", user.GetUsers)            // user verilerini çekmek için
+    // GET Endpoints
+    r.GET("/api/home", home.GetHomes)
+    r.GET("/api/about", about.GetAbouts)
+    r.GET("/api/projects", projects.GetProjects)
+    r.GET("/api/contact", contact.GetContacts)
+    r.GET("/api/user", user.GetUsers)
 
-	// HTTP endpointlerini tanımla (DELETE için)
-	http.HandleFunc("/api/home/delete/", home.DeleteHome)            // belirli bir home kaydını silmek için
-	http.HandleFunc("/api/about/delete/", about.DeleteAbout)         // belirli bir about kaydını silmek için
-	http.HandleFunc("/api/projects/delete/", projects.DeleteProject) // belirli bir project kaydını silmek için
-	http.HandleFunc("/api/contact/delete/", contact.DeleteContact)   // belirli bir contact kaydını silmek için
-	http.HandleFunc("/api/user/delete/", user.DeleteUser)            // belirli bir user kaydını silmek için
+    // DELETE Endpoints
+    r.DELETE("/api/home/:id", home.DeleteHome)
+    r.DELETE("/api/about/:id", about.DeleteAbout)
+    r.DELETE("/api/projects/:id", projects.DeleteProject)
+    r.DELETE("/api/contact/:id", contact.DeleteContact)
+    r.DELETE("/api/user/:id", user.DeleteUser)
 
-	// HTTP endpointlerini tanımla (PUT için - güncelleme)
-	http.HandleFunc("/api/home/update", home.UpdateHome)            // home güncelleme için PUT
-	http.HandleFunc("/api/about/update", about.UpdateAbout)         // about güncelleme için PUT
-	http.HandleFunc("/api/projects/update", projects.UpdateProject) // projects güncelleme için PUT
-	http.HandleFunc("/api/contact/update", contact.UpdateContact)   // contact güncelleme için PUT
-	http.HandleFunc("/api/user/update", user.UpdateUser)            // user güncelleme için PUT
+    // PUT Endpoints
+    r.PUT("/api/home", home.UpdateHome)
+    r.PUT("/api/about", about.UpdateAbout)
+    r.PUT("/api/projects", projects.UpdateProject)
+    r.PUT("/api/contact", contact.UpdateContact)
+    r.PUT("/api/user", user.UpdateUser)
 
-	// POST endpointlerini bağla
-	http.HandleFunc("/api/about/create", about.CreateAbout)
-	http.HandleFunc("/api/contact/create", contact.CreateContact)
-	http.HandleFunc("/api/home/create", home.CreateHome)
-	http.HandleFunc("/api/projects/create", projects.CreateProject)
-	http.HandleFunc("/api/users/create", user.CreateUser)
+    // POST Endpoints
+    r.POST("/api/home", home.CreateHome)
+    r.POST("/api/about", about.CreateAbout)
+    r.POST("/api/projects", projects.CreateProject)
+    r.POST("/api/contact", contact.CreateContact)
+    r.POST("/api/user", user.CreateUser)
 
-	// Sunucu başlatma
-	fmt.Println("Sunucu 8080 portunda başladı...") // Konsola bilgi yazdır
-	log.Fatal(http.ListenAndServe(":8080", nil))   // HTTP sunucusunu başlat, hata varsa logla ve kapat
+    r.Run(":8080") // 8080 portunda çalıştır
 }

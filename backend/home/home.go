@@ -1,21 +1,20 @@
 package home
 
 import (
-	"context"       // Veritabanı sorguları için context kullanımı
-	"encoding/json" // JSON formatına dönüştürmek için
-	"fmt"
-	"net/http" // HTTP server ve istek/yanıt işlemleri için
-	"strconv"
-	"strings"
+	"context"       // Veritabanı işlemleri için context
+	"fmt"           // Formatlı yazdırma için
+	"net/http"      // HTTP statü kodları için
+	"strconv"       // String to int dönüşümü için
 
-	"github.com/jackc/pgx/v5" // PostgreSQL bağlantısı için pgx kütüphanesi
+	"github.com/gin-gonic/gin"    // Gin framework
+	"github.com/jackc/pgx/v5"     // PostgreSQL bağlantısı için pgx kütüphanesi
 )
 
 // Home struct, home tablosundaki verileri temsil eder
 type Home struct {
-	ID          int    `json:"id"`          // JSON çıktısında id olarak görünecek
+	ID          int    `json:"id"`          // JSON çıktısında id olarak görünür
 	Title       string `json:"title"`       // Başlık alanı
-	Description string `json:"description"` // İçerik alanı
+	Description string `json:"description"` // Açıklama alanı
 }
 
 // Conn, veritabanı bağlantısı için global değişken
@@ -27,104 +26,75 @@ func SetDB(conn *pgx.Conn) {
 }
 
 // DeleteHome belirli ID'ye göre bir home kaydını siler
-func DeleteHome(w http.ResponseWriter, r *http.Request) {
-	// URL'den ID'yi al (örnek: /api/home/delete/3)
-	idStr := strings.TrimPrefix(r.URL.Path, "/api/home/delete/")
-	id, err := strconv.Atoi(idStr)
+func DeleteHome(c *gin.Context) {
+	idStr := c.Param("id") // URL parametresinden id'yi al (/api/home/:id şeklinde)
+	id, err := strconv.Atoi(idStr) // string'i integer'a çevir
 	if err != nil {
-		fmt.Println(err)
-		http.Error(w, "Geçersiz ID", http.StatusBadRequest)
-		fmt.Println("ID dönüştürme hatası:", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Geçersiz ID"}) // Hatalı ID ise 400 dön
 		return
 	}
 
-	// SQL sorgusuyla sil
-	_, err = Conn.Exec(context.Background(), "DELETE FROM home WHERE id=$1", id)
+	_, err = Conn.Exec(context.Background(), "DELETE FROM home WHERE id=$1", id) // Veritabanından silme sorgusu
 	if err != nil {
-		fmt.Println(err)
-		http.Error(w, "Silme işlemi başarısız", http.StatusInternalServerError)
-		fmt.Println("Silme hatası:", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Silme işlemi başarısız"}) // Silme başarısızsa 500 dön
 		return
 	}
 
-	fmt.Fprintf(w, "Home ID %d başarıyla silindi", id)
+	c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("Home ID %d başarıyla silindi", id)}) // Başarı mesajı dön
 }
 
 // GetHomes, HTTP GET isteği geldiğinde home tablosundaki tüm verileri döner
-func GetHomes(w http.ResponseWriter, r *http.Request) {
-	// Veritabanından id, title, content sütunlarını seçiyoruz
-	rows, err := Conn.Query(context.Background(), "SELECT id, title, description FROM home")
+func GetHomes(c *gin.Context) {
+	rows, err := Conn.Query(context.Background(), "SELECT id, title, description FROM home") // Tüm home kayıtlarını seç
 	if err != nil {
-		fmt.Println(err)
-		// Hata varsa HTTP 500 hatası döneriz
-		http.Error(w, "Veri alınamadı", http.StatusInternalServerError)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Veri alınamadı"}) // Veri çekilemezse 500 dön
 		return
 	}
-	defer rows.Close() // İşimiz bittiğinde veritabanı satırlarını kapatıyoruz
+	defer rows.Close() // İş bittiğinde bağlantıyı kapat
 
-	var homes []Home // Boş bir slice oluşturuyoruz, verileri buraya koyacağız
-	for rows.Next() {
+	var homes []Home              // Boş slice oluştur
+	for rows.Next() {             // Satırlar arasında döngü
 		var h Home
-		// Satırdan verileri Home structına dolduruyoruz
-		if err := rows.Scan(&h.ID, &h.Title, &h.Description); err != nil {
-			// Satır okunamazsa hata döneriz
-			http.Error(w, "Satır okunamadı", http.StatusInternalServerError)
+		if err := rows.Scan(&h.ID, &h.Title, &h.Description); err != nil { // Satırdan verileri al
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Satır okunamadı"}) // Hata olursa 500 dön
 			return
 		}
-		homes = append(homes, h) // Slice'a ekliyoruz
+		homes = append(homes, h) // Slice'a ekle
 	}
 
-	// Yanıtın türü JSON olduğunu belirtiyoruz
-	w.Header().Set("Content-Type", "application/json")
-	// JSON formatına çevirip yanıt olarak gönderiyoruz
-	json.NewEncoder(w).Encode(homes)
+	c.JSON(http.StatusOK, homes) // JSON olarak tüm kayıtları dön
 }
 
 // UpdateHome bir home kaydını günceller
-func UpdateHome(w http.ResponseWriter, r *http.Request) {
+func UpdateHome(c *gin.Context) {
 	var h Home
-	if err := json.NewDecoder(r.Body).Decode(&h); err != nil { // İstek gövdesindeki JSON Home struct'a decode edilir
-		fmt.Println("JSON çözümleme hatası:", err)            // Hata varsa konsola yazdır
-		http.Error(w, "Geçersiz veri", http.StatusBadRequest) // HTTP 400 hatası dön
+	if err := c.ShouldBindJSON(&h); err != nil { // JSON verisini struct'a bind et (decode et)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Geçersiz veri"}) // JSON hatalıysa 400 dön
 		return
 	}
 
-	_, err := Conn.Exec(context.Background(), "UPDATE home SET title=$1, content=$2 WHERE id=$3", h.Title, h.Description, h.ID) // Veritabanında güncelleme yapılır
+	_, err := Conn.Exec(context.Background(), "UPDATE home SET title=$1, description=$2 WHERE id=$3", h.Title, h.Description, h.ID) // Güncelleme sorgusu
 	if err != nil {
-		fmt.Println("Veritabanı güncelleme hatası:", err)                     // Hata varsa konsola yazdır
-		http.Error(w, "Güncelleme başarısız", http.StatusInternalServerError) // HTTP 500 hatası dön
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Güncelleme başarısız"}) // Başarısızsa 500 dön
 		return
 	}
 
-	fmt.Fprintf(w, "Home ID %d başarıyla güncellendi", h.ID) // Başarılı mesaj HTTP cevabına yazılır
+	c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("Home ID %d başarıyla güncellendi", h.ID)}) // Başarı mesajı dön
 }
 
 // CreateHome fonksiyonu, yeni bir home kaydı ekler
-func CreateHome(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost { // Sadece POST metoduna izin verilir
-		http.Error(w, "Sadece POST isteği kabul edilir", http.StatusMethodNotAllowed)
+func CreateHome(c *gin.Context) {
+	var h Home
+	if err := c.ShouldBindJSON(&h); err != nil { // JSON verisini struct'a bind et
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Geçersiz veri"}) // Geçersiz veri ise 400 dön
 		return
 	}
 
-	var h Home                                                 // JSON'dan gelen verileri tutmak için Home struct'ı oluşturulur
-	if err := json.NewDecoder(r.Body).Decode(&h); err != nil { // JSON verisi çözülür
-		fmt.Println("JSON çözümleme hatası:", err)
-		http.Error(w, "Geçersiz veri", http.StatusBadRequest)
-		return
-	}
-
-	// SQL INSERT sorgusu çalıştırılır
-	_, err := Conn.Exec(
-		context.Background(),
-		"INSERT INTO home (title, description) VALUES ($1, $2)", // Veritabanına yeni kayıt eklenir
-		h.Title, h.Description, // Parametreler olarak title ve description verilir
-	)
+	_, err := Conn.Exec(context.Background(), "INSERT INTO home (title, description) VALUES ($1, $2)", h.Title, h.Description) // Yeni kayıt ekle
 	if err != nil {
-		fmt.Println("Veritabanı ekleme hatası:", err)
-		http.Error(w, "Kayıt eklenemedi", http.StatusInternalServerError)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Kayıt eklenemedi"}) // Eklenemezse 500 dön
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)              // HTTP 201: başarıyla oluşturuldu
-	fmt.Fprint(w, "Home kaydı başarıyla eklendi.") // Başarı mesajı gönderilir
+	c.JSON(http.StatusCreated, gin.H{"message": "Home kaydı başarıyla eklendi"}) // Başarı mesajı dön (201)
 }

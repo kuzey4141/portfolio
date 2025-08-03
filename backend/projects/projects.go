@@ -1,138 +1,108 @@
-package projects // Bu dosya projects paketine ait
+package projects // projects paketi
 
 import (
-	"context"       // Veritabanı işlemlerinde context kullanımı için
-	"encoding/json" // JSON formatına dönüştürme ve çözümleme için
-	"fmt"           // Konsola yazı yazdırmak için
-	"net/http"      // HTTP istek/cevap işlemek için
-	"strconv"       // String-int dönüşümü için
-	"strings"       // String işlemleri (örneğin URL'den id ayıklamak) için
+	"context"            // DB işlemleri için context
+	"fmt"                // Konsola yazdırmak için
+	"strconv"            // String - int dönüşümleri için
+	"github.com/gin-gonic/gin" // Gin framework
 
-	"github.com/jackc/pgx/v5" // PostgreSQL veritabanı sürücüsü
+	"github.com/jackc/pgx/v5"  // PostgreSQL kütüphanesi
 )
 
 // Project struct, projects tablosundaki verileri temsil eder
 type Project struct {
-	ID          int    `json:"id"`          // ID alanı, JSON'da "id" olarak adlandırılır
-	Name        string `json:"name"`        // Proje adı, JSON'da "name"
-	Description string `json:"description"` // Proje açıklaması, JSON'da "description"
-	Url         string `json:"url"`         // Proje bağlantı adresi, JSON'da "url"
+	ID          int    `json:"id"`          // JSON'da id olarak gösterilir
+	Name        string `json:"name"`        // JSON'da name olarak gösterilir
+	Description string `json:"description"` // JSON'da description olarak gösterilir
+	Url         string `json:"url"`         // JSON'da url olarak gösterilir
 }
 
-var Conn *pgx.Conn // Veritabanı bağlantısını tutan global değişken
+var Conn *pgx.Conn // Global veritabanı bağlantısı
 
-// SetDB, dışarıdan alınan bağlantıyı paket içinde kullanmak için atar
 func SetDB(conn *pgx.Conn) {
-	Conn = conn // Global bağlantı değişkenine değer atanır
+	Conn = conn // Global bağlantıyı set et
 }
 
-// DeleteProject, belirli bir ID'ye sahip projeyi siler
-func DeleteProject(w http.ResponseWriter, r *http.Request) {
-	idStr := strings.TrimPrefix(r.URL.Path, "/api/projects/delete/") // URL'den id kısmını çıkar
-	id, err := strconv.Atoi(idStr)                                   // id'yi string'den int'e çevir
+// DeleteProject Gin handler: Silme işlemi için
+func DeleteProject(c *gin.Context) {
+	idStr := c.Param("id")                     // URL'den :id parametresini al
+	id, err := strconv.Atoi(idStr)             // String'i int'e çevir
 	if err != nil {
-		fmt.Println(err)                                    // Hata varsa konsola yaz
-		fmt.Println("ID dönüştürme hatası:", err)           // Ek bilgi yaz
-		http.Error(w, "Geçersiz ID", http.StatusBadRequest) // HTTP 400 hatası gönder
+		c.JSON(400, gin.H{"error": "Geçersiz ID"}) // Hatalı ID için JSON hata döndür
 		return
 	}
 
-	_, err = Conn.Exec(context.Background(), "DELETE FROM projects WHERE id=$1", id) // SQL sorgusu ile silme işlemi yap
+	_, err = Conn.Exec(context.Background(), "DELETE FROM projects WHERE id=$1", id) // Silme sorgusu
 	if err != nil {
-		fmt.Println(err)                                                        // Hata varsa konsola yaz
-		fmt.Println("Silme hatası:", err)                                       // Ek hata bilgisi
-		http.Error(w, "Silme işlemi başarısız", http.StatusInternalServerError) // HTTP 500 hatası gönder
+		c.JSON(500, gin.H{"error": "Silme işlemi başarısız"}) // DB hatası varsa JSON hata
 		return
 	}
 
-	fmt.Fprintf(w, "Project ID %d başarıyla silindi", id) // Başarı mesajı döndür
+	c.JSON(200, gin.H{"message": fmt.Sprintf("Project ID %d başarıyla silindi", id)}) // Başarı mesajı JSON olarak
 }
 
-// GetProjects tüm projeleri JSON olarak döndürür
-func GetProjects(w http.ResponseWriter, r *http.Request) {
-	rows, err := Conn.Query(context.Background(), "SELECT id, name, description, url FROM projects") // SQL sorgusu ile tüm projeleri çek
+// GetProjects tüm projeleri JSON olarak döner
+func GetProjects(c *gin.Context) {
+	rows, err := Conn.Query(context.Background(), "SELECT id, name, description, url FROM projects") // Tüm projeleri çek
 	if err != nil {
-		fmt.Println(err)                                                // Hata yazdır
-		fmt.Println("Query hatası:", err)                               // Ek hata bilgisi
-		http.Error(w, "Veri alınamadı", http.StatusInternalServerError) // HTTP 500 hatası gönder
+		c.JSON(500, gin.H{"error": "Veri alınamadı"}) // Hata varsa JSON dön
 		return
 	}
-	defer rows.Close() // Sorgu sonuçlarını kapat
+	defer rows.Close()
 
-	var projects []Project // Proje dizisi tanımla
-	for rows.Next() {      // Her satır için
-		var p Project                                                             // Yeni Project nesnesi oluştur
-		if err := rows.Scan(&p.ID, &p.Name, &p.Description, &p.Url); err != nil { // Satır verilerini struct'a ata
-			fmt.Println("Satır okunurken hata:", err)                        // Hata varsa yaz
-			http.Error(w, "Satır okunamadı", http.StatusInternalServerError) // HTTP 500 hatası gönder
+	var projects []Project
+	for rows.Next() {
+		var p Project
+		if err := rows.Scan(&p.ID, &p.Name, &p.Description, &p.Url); err != nil {
+			c.JSON(500, gin.H{"error": "Satır okunamadı"}) // Satır okuma hatası
 			return
 		}
-		projects = append(projects, p) // Okunan projeyi diziye ekle
+		projects = append(projects, p)
 	}
 
-	w.Header().Set("Content-Type", "application/json") // İçerik türünü JSON olarak ayarla
-	json.NewEncoder(w).Encode(projects)                // Proje listesini JSON olarak HTTP yanıtına yaz
+	c.JSON(200, projects) // Başarıyla projeleri JSON olarak gönder
 }
 
-// UpdateProject belirli ID'li bir projeyi günceller
-func UpdateProject(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPut { // PUT değilse
-		http.Error(w, "Sadece PUT isteği kabul edilir", http.StatusMethodNotAllowed) // HTTP 405 döndür
-		return
-	}
-
-	idStr := strings.TrimPrefix(r.URL.Path, "/api/projects/update/") // URL'den id'yi al
-	id, err := strconv.Atoi(idStr)                                   // String'den int'e çevir
+// UpdateProject güncelleme işlemi için Gin handler
+func UpdateProject(c *gin.Context) {
+	idStr := c.Param("id")                     // URL'den id al
+	id, err := strconv.Atoi(idStr)             // String'i int yap
 	if err != nil {
-		fmt.Println("ID dönüştürme hatası:", err)           // Hata varsa yazdır
-		http.Error(w, "Geçersiz ID", http.StatusBadRequest) // HTTP 400 döndür
+		c.JSON(400, gin.H{"error": "Geçersiz ID"}) // Hatalı ID ise hata dön
 		return
 	}
 
-	var p Project                                              // Güncellenecek proje nesnesi
-	if err := json.NewDecoder(r.Body).Decode(&p); err != nil { // JSON'dan proje nesnesini çıkar
-		fmt.Println("JSON çözümleme hatası:", err)            // Hata varsa yazdır
-		http.Error(w, "Geçersiz veri", http.StatusBadRequest) // HTTP 400 döndür
+	var p Project
+	if err := c.BindJSON(&p); err != nil {    // JSON'dan Project struct'a bağla
+		c.JSON(400, gin.H{"error": "Geçersiz veri"}) // JSON parse hatası
 		return
 	}
 
-	sql := `UPDATE projects SET name=$1, description=$2, url=$3 WHERE id=$4`        // Güncelleme sorgusu
-	_, err = Conn.Exec(context.Background(), sql, p.Name, p.Description, p.Url, id) // Sorguyu çalıştır
+	sql := `UPDATE projects SET name=$1, description=$2, url=$3 WHERE id=$4`
+	_, err = Conn.Exec(context.Background(), sql, p.Name, p.Description, p.Url, id) // DB güncelleme
 	if err != nil {
-		fmt.Println("Veritabanı güncelleme hatası:", err)                     // Hata varsa yazdır
-		http.Error(w, "Güncelleme başarısız", http.StatusInternalServerError) // HTTP 500 döndür
+		c.JSON(500, gin.H{"error": "Güncelleme başarısız"}) // DB hatası
 		return
 	}
 
-	fmt.Fprintf(w, "Project ID %d başarıyla güncellendi", id) // Başarı mesajı döndür
+	c.JSON(200, gin.H{"message": fmt.Sprintf("Project ID %d başarıyla güncellendi", id)}) // Başarı mesajı
 }
 
-// CreateProject fonksiyonu, yeni bir proje kaydı ekler
-func CreateProject(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost { // Yalnızca POST isteklerine izin verilir
-		http.Error(w, "Sadece POST isteği kabul edilir", http.StatusMethodNotAllowed)
+// CreateProject yeni proje eklemek için Gin handler
+func CreateProject(c *gin.Context) {
+	var p Project
+	if err := c.BindJSON(&p); err != nil {    // JSON'u Project struct'a bağla
+		c.JSON(400, gin.H{"error": "Geçersiz veri"}) // JSON parse hatası
 		return
 	}
 
-	var p Project                                              // İstekten gelecek JSON verisini tutacak Project struct'ı
-	if err := json.NewDecoder(r.Body).Decode(&p); err != nil { // JSON gövdesi çözümlenir
-		fmt.Println("JSON çözümleme hatası:", err)
-		http.Error(w, "Geçersiz veri", http.StatusBadRequest)
-		return
-	}
-
-	// SQL INSERT sorgusu: gelen name, description ve url alanları veritabanına eklenir
-	_, err := Conn.Exec(
-		context.Background(),
+	_, err := Conn.Exec(context.Background(),
 		"INSERT INTO projects (name, description, url) VALUES ($1, $2, $3)",
-		p.Name, p.Description, p.Url, // Sırasıyla struct'taki veriler sorguya aktarılır
-	)
+		p.Name, p.Description, p.Url) // DB'ye kayıt ekle
 	if err != nil {
-		fmt.Println("Veritabanı ekleme hatası:", err)
-		http.Error(w, "Kayıt eklenemedi", http.StatusInternalServerError)
+		c.JSON(500, gin.H{"error": "Kayıt eklenemedi"}) // Hata varsa JSON dön
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)               // HTTP 201: başarıyla oluşturuldu
-	fmt.Fprint(w, "Proje kaydı başarıyla eklendi.") // Kullanıcıya mesaj döndürülür
+	c.JSON(201, gin.H{"message": "Proje kaydı başarıyla eklendi"}) // Başarı mesajı
 }

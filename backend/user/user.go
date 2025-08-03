@@ -1,136 +1,107 @@
-package user // user paketi tanımlandı
+package user // user paketi
 
 import (
-	"context"       // veritabanı işlemleri için context paketi
-	"encoding/json" // JSON encoding/decoding için
-	"fmt"           // formatlı IO için
-	"net/http"      // HTTP istek ve yanıt işlemleri için
-	"strconv"       // string-int dönüşümü için
-	"strings"       // string işlemleri için
-
-	"github.com/jackc/pgx/v5" // PostgreSQL için pgx kütüphanesi
+	"context"            // DB işlemleri için context
+	"fmt"                // Konsola yazdırmak için
+	"strconv"            // String - int dönüşümü için
+	"github.com/gin-gonic/gin" // Gin framework
+	"github.com/jackc/pgx/v5"  // PostgreSQL kütüphanesi
 )
 
-// User struct'ı, user tablosundaki sütunları temsil eder
+// User struct, users tablosundaki verileri temsil eder
 type User struct {
-	ID       int    `json:"id"`                 // kullanıcı ID'si, JSON'da "id"
-	Username string `json:"username"`           // kullanıcı adı, JSON'da "username"
-	Password string `json:"password,omitempty"` // şifre, JSON'da "password", boşsa gösterilmez
-	Email    string `json:"email"`              // email adresi, JSON'da "email"
+	ID       int    `json:"id"`                 // JSON'da id alanı
+	Username string `json:"username"`           // JSON'da kullanıcı adı
+	Password string `json:"password,omitempty"` // JSON'da şifre (gönderilmezse boş gösterilir)
+	Email    string `json:"email"`              // JSON'da email
 }
 
-var Conn *pgx.Conn // global veritabanı bağlantısı tutar
+var Conn *pgx.Conn // Global veritabanı bağlantısı
 
-// SetDB fonksiyonu, dışarıdan gelen veritabanı bağlantısını Conn değişkenine atar
 func SetDB(conn *pgx.Conn) {
-	Conn = conn // Conn global değişkene atandı
+	Conn = conn // Bağlantıyı set et
 }
 
-// DeleteUser fonksiyonu, verilen ID'ye göre kullanıcı siler
-func DeleteUser(w http.ResponseWriter, r *http.Request) {
-	idStr := strings.TrimPrefix(r.URL.Path, "/api/user/delete/") // URL'den ID çıkarılır
-	id, err := strconv.Atoi(idStr)                               // ID string'ten integer'a çevrilir
+// DeleteUser silme işlemi
+func DeleteUser(c *gin.Context) {
+	idStr := c.Param("id")              // URL'den id parametresi al
+	id, err := strconv.Atoi(idStr)      // String to int dönüştür
 	if err != nil {
-		http.Error(w, "Geçersiz ID", http.StatusBadRequest) // hatalı ID için 400 döner
-		fmt.Println("ID dönüştürme hatası:", err)           // hata konsola yazılır
+		c.JSON(400, gin.H{"error": "Geçersiz ID"}) // Hatalı ID ise JSON ile hata döndür
 		return
 	}
 
-	_, err = Conn.Exec(context.Background(), "DELETE FROM users WHERE id=$1", id) // veritabanından silme işlemi
+	_, err = Conn.Exec(context.Background(), "DELETE FROM users WHERE id=$1", id) // DB'den sil
 	if err != nil {
-		fmt.Println("Silme hatası:", err)                                       // hata konsola yazılır
-		http.Error(w, "Silme işlemi başarısız", http.StatusInternalServerError) // 500 hata döner
+		c.JSON(500, gin.H{"error": "Silme işlemi başarısız"}) // DB hatası ise JSON hata
 		return
 	}
 
-	fmt.Fprintf(w, "User ID %d başarıyla silindi", id) // başarı mesajı yazılır
+	c.JSON(200, gin.H{"message": fmt.Sprintf("User ID %d başarıyla silindi", id)}) // Başarı mesajı JSON
 }
 
-// GetUsers fonksiyonu, kullanıcı listesini döner (şifre hariç)
-func GetUsers(w http.ResponseWriter, r *http.Request) {
-	rows, err := Conn.Query(context.Background(), "SELECT id, username, email FROM users") // sadece id, username, email sorgulanır
+// GetUsers kullanıcı listesini döner (şifre hariç)
+func GetUsers(c *gin.Context) {
+	rows, err := Conn.Query(context.Background(), "SELECT id, username, email FROM users") // Kullanıcıları çek
 	if err != nil {
-		fmt.Println("Veri çekme hatası:", err)                          // hata konsola yazılır
-		http.Error(w, "Veri alınamadı", http.StatusInternalServerError) // 500 hata döner
+		c.JSON(500, gin.H{"error": "Veri alınamadı"}) // Hata varsa JSON dön
 		return
 	}
-	defer rows.Close() // fonksiyon sonunda veritabanı satırları kapatılır
+	defer rows.Close()
 
-	var users []User  // boş user slice oluşturulur
-	for rows.Next() { // satır satır dönülür
-		var u User                                                      // her satır için User struct
-		if err := rows.Scan(&u.ID, &u.Username, &u.Email); err != nil { // satır verileri struct'a atanır
-			fmt.Println("Satır okunurken hata:", err)                        // hata varsa yazdırılır
-			http.Error(w, "Satır okunamadı", http.StatusInternalServerError) // 500 hata döner
+	var users []User
+	for rows.Next() {
+		var u User
+		if err := rows.Scan(&u.ID, &u.Username, &u.Email); err != nil {
+			c.JSON(500, gin.H{"error": "Satır okunamadı"}) // Satır okuma hatası
 			return
 		}
-		users = append(users, u) // kullanıcı slice'ına ekle
+		users = append(users, u)
 	}
 
-	w.Header().Set("Content-Type", "application/json") // içerik tipi JSON olarak ayarlanır
-	json.NewEncoder(w).Encode(users)                   // users slice'ı JSON olarak yazılır
+	c.JSON(200, users) // JSON olarak kullanıcı listesini döndür
 }
 
-// UpdateUser fonksiyonu, kullanıcı bilgilerini günceller (şifre isteğe bağlı)
-func UpdateUser(w http.ResponseWriter, r *http.Request) {
+// UpdateUser kullanıcı güncelleme işlemi
+func UpdateUser(c *gin.Context) {
 	var u User
-	if err := json.NewDecoder(r.Body).Decode(&u); err != nil { // gelen JSON User struct'a decode edilir
-		fmt.Println("JSON çözümleme hatası:", err)            // hata varsa yazdırılır
-		http.Error(w, "Geçersiz veri", http.StatusBadRequest) // 400 hata döner
+	if err := c.BindJSON(&u); err != nil { // JSON gövdesini User struct'a bağla
+		c.JSON(400, gin.H{"error": "Geçersiz veri"}) // Hatalı veri ise JSON döndür
 		return
 	}
 
 	if u.Password != "" {
-		// şifre dolu ise şifre dahil güncelleme yap
-		_, err := Conn.Exec(context.Background(), "UPDATE users SET username=$1, email=$2, password=$3 WHERE id=$4", u.Username, u.Email, u.Password, u.ID)
+		_, err := Conn.Exec(context.Background(), "UPDATE users SET username=$1, email=$2, password=$3 WHERE id=$4", u.Username, u.Email, u.Password, u.ID) // Şifre dahil güncelle
 		if err != nil {
-			fmt.Println("Veritabanı güncelleme hatası:", err)                     // hata yazdırılır
-			http.Error(w, "Güncelleme başarısız", http.StatusInternalServerError) // 500 hata döner
+			c.JSON(500, gin.H{"error": "Güncelleme başarısız"})
 			return
 		}
 	} else {
-		// şifre boş ise sadece username ve email güncellenir
-		_, err := Conn.Exec(context.Background(), "UPDATE users SET username=$1, email=$2 WHERE id=$3", u.Username, u.Email, u.ID)
+		_, err := Conn.Exec(context.Background(), "UPDATE users SET username=$1, email=$2 WHERE id=$3", u.Username, u.Email, u.ID) // Şifresiz güncelle
 		if err != nil {
-			fmt.Println("Veritabanı güncelleme hatası:", err)                     // hata yazdırılır
-			http.Error(w, "Güncelleme başarısız", http.StatusInternalServerError) // 500 hata döner
+			c.JSON(500, gin.H{"error": "Güncelleme başarısız"})
 			return
 		}
 	}
 
-	fmt.Fprintf(w, "User ID %d başarıyla güncellendi", u.ID) // başarı mesajı yazılır
+	c.JSON(200, gin.H{"message": fmt.Sprintf("User ID %d başarıyla güncellendi", u.ID)}) // Başarı mesajı
 }
 
-// CreateUser yeni kullanıcı oluşturur
-func CreateUser(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost { // Sadece POST kabul edilir
-		http.Error(w, "Sadece POST isteği kabul edilir", http.StatusMethodNotAllowed)
-		return
-	}
-
+// CreateUser yeni kullanıcı ekleme
+func CreateUser(c *gin.Context) {
 	var u User
-	// İstekten gelen JSON'u User struct'ına dönüştür
-	if err := json.NewDecoder(r.Body).Decode(&u); err != nil {
-		fmt.Println("JSON çözümleme hatası:", err)
-		http.Error(w, "Geçersiz veri", http.StatusBadRequest)
+	if err := c.BindJSON(&u); err != nil { // JSON'u User struct'a bağla
+		c.JSON(400, gin.H{"error": "Geçersiz veri"})
 		return
 	}
 
-	// Burada normalde şifre hashlenmeli (örneğin bcrypt ile)
-	// Şifre hashleme işlemi yapılmadan kayıt önerilmez
+	// Şifre hashleme işlemi burada yapılmalı, şimdilik düz kayıt
 
-	// Veritabanına yeni kullanıcı ekle
-	_, err := Conn.Exec(
-		context.Background(),
-		"INSERT INTO users (username, password, email) VALUES ($1, $2, $3)",
-		u.Username, u.Password, u.Email,
-	)
+	_, err := Conn.Exec(context.Background(), "INSERT INTO users (username, password, email) VALUES ($1, $2, $3)", u.Username, u.Password, u.Email) // DB ekleme
 	if err != nil {
-		fmt.Println("Veritabanı ekleme hatası:", err)
-		http.Error(w, "Kullanıcı eklenemedi", http.StatusInternalServerError)
+		c.JSON(500, gin.H{"error": "Kullanıcı eklenemedi"})
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)                // Başarı kodu 201
-	fmt.Fprint(w, "Kullanıcı başarıyla oluşturuldu") // Başarı mesajı
+	c.JSON(201, gin.H{"message": "Kullanıcı başarıyla oluşturuldu"}) // Başarı mesajı
 }
