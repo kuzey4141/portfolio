@@ -1,13 +1,13 @@
 package about // about paketi tanımlanır, bu dosyadaki tüm kodlar bu pakete aittir
 
 import (
-	"context"       // Veritabanı işlemleri için context kullanılır
-	"fmt"           // Terminale hata veya bilgi mesajı yazmak için
-	"net/http"      // HTTP statü kodları için
-	"strconv"       // String ifadeleri integer'a çevirmek için (örneğin ID)
+	"context"  // Veritabanı işlemleri için context kullanılır
+	"fmt"      // Terminale hata veya bilgi mesajı yazmak için
+	"net/http" // HTTP statü kodları için
+	"strconv"  // String ifadeleri integer'a çevirmek için (örneğin ID)
 
-	"github.com/gin-gonic/gin"    // Gin framework'ü kullanmak için
-	"github.com/jackc/pgx/v5"     // PostgreSQL veritabanı ile iletişim kurmak için pgx kütüphanesi
+	"github.com/gin-gonic/gin" // Gin framework'ü kullanmak için
+	"github.com/jackc/pgx/v5"  // PostgreSQL veritabanı ile iletişim kurmak için pgx kütüphanesi
 )
 
 // About struct'ı, veritabanındaki "about" tablosundaki bir satırı temsil eder
@@ -27,7 +27,7 @@ func SetDB(conn *pgx.Conn) {
 func GetAbouts(c *gin.Context) {
 	rows, err := Conn.Query(context.Background(), "SELECT id, content FROM about") // SQL sorgusu çalıştırılır
 	if err != nil {
-		fmt.Println(err)                            // Hata varsa terminale yazdırılır
+		fmt.Println(err)                                                         // Hata varsa terminale yazdırılır
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Veri alınamadı"}) // HTTP 500 hatası JSON ile dönülür
 		return
 	}
@@ -37,7 +37,7 @@ func GetAbouts(c *gin.Context) {
 	for rows.Next() {  // Her satır için döngü
 		var a About                                          // Geçici About nesnesi
 		if err := rows.Scan(&a.ID, &a.Content); err != nil { // Satırdaki veriler struct'a atanır
-			fmt.Println(err)                                                 // Hata varsa terminale yazdır
+			fmt.Println(err)                                                          // Hata varsa terminale yazdır
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Satır okunamadı"}) // Hata varsa JSON dön
 			return
 		}
@@ -49,17 +49,17 @@ func GetAbouts(c *gin.Context) {
 
 // DeleteAbout fonksiyonu, belirtilen ID'ye sahip about kaydını siler
 func DeleteAbout(c *gin.Context) {
-	idStr := c.Param("id") // URL parametresinden ID alınır (/api/about/:id şeklinde)
+	idStr := c.Param("id")         // URL parametresinden ID alınır (/api/about/:id şeklinde)
 	id, err := strconv.Atoi(idStr) // String ID integer'a çevrilir
 	if err != nil {
-		fmt.Println(err)                                       // Hata yazdırılır
+		fmt.Println(err)                                             // Hata yazdırılır
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Geçersiz ID"}) // Geçersiz ID ise 400 dönülür
 		return
 	}
 
 	_, err = Conn.Exec(context.Background(), "DELETE FROM about WHERE id=$1", id) // Silme sorgusu çalıştırılır
 	if err != nil {
-		fmt.Println(err)                                                        // Hata yazdırılır
+		fmt.Println(err)                                                                 // Hata yazdırılır
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Silme işlemi başarısız"}) // Başarısızsa 500 dön
 		return
 	}
@@ -71,14 +71,14 @@ func DeleteAbout(c *gin.Context) {
 func UpdateAbout(c *gin.Context) {
 	var a About
 	if err := c.ShouldBindJSON(&a); err != nil { // JSON verisi struct'a bind edilir
-		fmt.Println("JSON çözümleme hatası:", err)                // Hata varsa yazdırılır
+		fmt.Println("JSON çözümleme hatası:", err)                     // Hata varsa yazdırılır
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Geçersiz veri"}) // Hatalı veri ise 400 dönülür
 		return
 	}
 
 	_, err := Conn.Exec(context.Background(), "UPDATE about SET content=$1 WHERE id=$2", a.Content, a.ID) // Güncelleme sorgusu çalıştırılır
 	if err != nil {
-		fmt.Println("Veritabanı güncelleme hatası:", err)                     // Hata yazdırılır
+		fmt.Println("Veritabanı güncelleme hatası:", err)                              // Hata yazdırılır
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Güncelleme başarısız"}) // Başarısızsa 500 dönülür
 		return
 	}
@@ -90,14 +90,14 @@ func UpdateAbout(c *gin.Context) {
 func CreateAbout(c *gin.Context) {
 	var a About
 	if err := c.ShouldBindJSON(&a); err != nil { // JSON verisi struct'a bind edilir
-		fmt.Println("JSON çözümleme hatası:", err)               // Hata varsa yazdırılır
+		fmt.Println("JSON çözümleme hatası:", err)                     // Hata varsa yazdırılır
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Geçersiz veri"}) // Hatalı veri ise 400 dönülür
 		return
 	}
 
 	_, err := Conn.Exec(context.Background(), "INSERT INTO about (content) VALUES ($1)", a.Content) // Yeni kayıt ekleme sorgusu çalıştırılır
 	if err != nil {
-		fmt.Println("Veritabanı ekleme hatası:", err)                    // Hata yazdırılır
+		fmt.Println("Veritabanı ekleme hatası:", err)                              // Hata yazdırılır
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Kayıt eklenemedi"}) // Eklenemezse 500 dönülür
 		return
 	}
