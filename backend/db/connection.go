@@ -12,7 +12,7 @@ var Conn *pgx.Conn // Global veritabanı bağlantısı
 
 // ConnectDB fonksiyonu bağlantıyı kurar
 func ConnectDB() {
-	connStr := "postgres://postgres:6303523@localhost:5432/portfolio?sslmode=disable" // Bağlantı stringi
+	connStr := "postgres://postgres:046804@localhost:5432/portfolio?sslmode=disable" // Bağlantı stringi
 
 	var err error
 	Conn, err = pgx.Connect(context.Background(), connStr) // Veritabanına bağlan
