@@ -17,6 +17,5 @@ func main() {
 
 	routes.SetupRoutes(r, db.Conn)
 
-	r.Run(":8080") // 8080 portunda çalıştır
-
+	r.Run(":8081") // Run on port 8081
 }

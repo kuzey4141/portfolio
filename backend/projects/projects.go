@@ -1,51 +1,52 @@
-package projects // projects paketi
+package projects // projects package
 
 import (
-	"context"            // DB işlemleri için context
-	"fmt"                // Konsola yazdırmak için
-	"strconv"            // String - int dönüşümleri için
+	"context" // context for DB operations
+	"fmt"     // for printing to console
+	"strconv" // for string-int conversions
+
 	"github.com/gin-gonic/gin" // Gin framework
 
-	"github.com/jackc/pgx/v5"  // PostgreSQL kütüphanesi
+	"github.com/jackc/pgx/v5" // PostgreSQL library
 )
 
-// Project struct, projects tablosundaki verileri temsil eder
+// Project struct represents the data in the projects table
 type Project struct {
-	ID          int    `json:"id"`          // JSON'da id olarak gösterilir
-	Name        string `json:"name"`        // JSON'da name olarak gösterilir
-	Description string `json:"description"` // JSON'da description olarak gösterilir
-	Url         string `json:"url"`         // JSON'da url olarak gösterilir
+	ID          int    `json:"id"`          // shown as id in JSON
+	Name        string `json:"name"`        // shown as name in JSON
+	Description string `json:"description"` // shown as description in JSON
+	Url         string `json:"url"`         // shown as url in JSON
 }
 
-var Conn *pgx.Conn // Global veritabanı bağlantısı
+var Conn *pgx.Conn // Global database connection
 
 func SetDB(conn *pgx.Conn) {
-	Conn = conn // Global bağlantıyı set et
+	Conn = conn // Set the global connection
 }
 
-// DeleteProject Gin handler: Silme işlemi için
+// DeleteProject Gin handler: For delete operation
 func DeleteProject(c *gin.Context) {
-	idStr := c.Param("id")                     // URL'den :id parametresini al
-	id, err := strconv.Atoi(idStr)             // String'i int'e çevir
+	idStr := c.Param("id")         // Get :id parameter from URL
+	id, err := strconv.Atoi(idStr) // Convert string to int
 	if err != nil {
-		c.JSON(400, gin.H{"error": "Geçersiz ID"}) // Hatalı ID için JSON hata döndür
+		c.JSON(400, gin.H{"error": "Invalid ID"}) // Return JSON error for invalid ID
 		return
 	}
 
-	_, err = Conn.Exec(context.Background(), "DELETE FROM projects WHERE id=$1", id) // Silme sorgusu
+	_, err = Conn.Exec(context.Background(), "DELETE FROM projects WHERE id=$1", id) // Delete query
 	if err != nil {
-		c.JSON(500, gin.H{"error": "Silme işlemi başarısız"}) // DB hatası varsa JSON hata
+		c.JSON(500, gin.H{"error": "Delete operation failed"}) // Return JSON error if DB error
 		return
 	}
 
-	c.JSON(200, gin.H{"message": fmt.Sprintf("Project ID %d başarıyla silindi", id)}) // Başarı mesajı JSON olarak
+	c.JSON(200, gin.H{"message": fmt.Sprintf("Project ID %d deleted successfully", id)}) // Success message as JSON
 }
 
-// GetProjects tüm projeleri JSON olarak döner
+// GetProjects returns all projects as JSON
 func GetProjects(c *gin.Context) {
-	rows, err := Conn.Query(context.Background(), "SELECT id, name, description, url FROM projects") // Tüm projeleri çek
+	rows, err := Conn.Query(context.Background(), "SELECT id, name, description, url FROM projects") // Fetch all projects
 	if err != nil {
-		c.JSON(500, gin.H{"error": "Veri alınamadı"}) // Hata varsa JSON dön
+		c.JSON(500, gin.H{"error": "Data could not be retrieved"}) // Return JSON error if failed
 		return
 	}
 	defer rows.Close()
@@ -54,55 +55,55 @@ func GetProjects(c *gin.Context) {
 	for rows.Next() {
 		var p Project
 		if err := rows.Scan(&p.ID, &p.Name, &p.Description, &p.Url); err != nil {
-			c.JSON(500, gin.H{"error": "Satır okunamadı"}) // Satır okuma hatası
+			c.JSON(500, gin.H{"error": "Could not read row"}) // Row read error
 			return
 		}
 		projects = append(projects, p)
 	}
 
-	c.JSON(200, projects) // Başarıyla projeleri JSON olarak gönder
+	c.JSON(200, projects) // Successfully return projects as JSON
 }
 
-// UpdateProject güncelleme işlemi için Gin handler
+// UpdateProject Gin handler for update operation
 func UpdateProject(c *gin.Context) {
-	idStr := c.Param("id")                     // URL'den id al
-	id, err := strconv.Atoi(idStr)             // String'i int yap
+	idStr := c.Param("id")         // Get id from URL
+	id, err := strconv.Atoi(idStr) // Convert string to int
 	if err != nil {
-		c.JSON(400, gin.H{"error": "Geçersiz ID"}) // Hatalı ID ise hata dön
+		c.JSON(400, gin.H{"error": "Invalid ID"}) // Return error if ID is invalid
 		return
 	}
 
 	var p Project
-	if err := c.BindJSON(&p); err != nil {    // JSON'dan Project struct'a bağla
-		c.JSON(400, gin.H{"error": "Geçersiz veri"}) // JSON parse hatası
+	if err := c.BindJSON(&p); err != nil { // Bind JSON to Project struct
+		c.JSON(400, gin.H{"error": "Invalid data"}) // JSON parse error
 		return
 	}
 
 	sql := `UPDATE projects SET name=$1, description=$2, url=$3 WHERE id=$4`
-	_, err = Conn.Exec(context.Background(), sql, p.Name, p.Description, p.Url, id) // DB güncelleme
+	_, err = Conn.Exec(context.Background(), sql, p.Name, p.Description, p.Url, id) // DB update
 	if err != nil {
-		c.JSON(500, gin.H{"error": "Güncelleme başarısız"}) // DB hatası
+		c.JSON(500, gin.H{"error": "Update failed"}) // DB error
 		return
 	}
 
-	c.JSON(200, gin.H{"message": fmt.Sprintf("Project ID %d başarıyla güncellendi", id)}) // Başarı mesajı
+	c.JSON(200, gin.H{"message": fmt.Sprintf("Project ID %d updated successfully", id)}) // Success message
 }
 
-// CreateProject yeni proje eklemek için Gin handler
+// CreateProject Gin handler for adding a new project
 func CreateProject(c *gin.Context) {
 	var p Project
-	if err := c.BindJSON(&p); err != nil {    // JSON'u Project struct'a bağla
-		c.JSON(400, gin.H{"error": "Geçersiz veri"}) // JSON parse hatası
+	if err := c.BindJSON(&p); err != nil { // Bind JSON to Project struct
+		c.JSON(400, gin.H{"error": "Invalid data"}) // JSON parse error
 		return
 	}
 
 	_, err := Conn.Exec(context.Background(),
 		"INSERT INTO projects (name, description, url) VALUES ($1, $2, $3)",
-		p.Name, p.Description, p.Url) // DB'ye kayıt ekle
+		p.Name, p.Description, p.Url) // Insert into DB
 	if err != nil {
-		c.JSON(500, gin.H{"error": "Kayıt eklenemedi"}) // Hata varsa JSON dön
+		c.JSON(500, gin.H{"error": "Record could not be added"}) // Return error if failed
 		return
 	}
 
-	c.JSON(201, gin.H{"message": "Proje kaydı başarıyla eklendi"}) // Başarı mesajı
+	c.JSON(201, gin.H{"message": "Project record added successfully"}) // Success message
 }

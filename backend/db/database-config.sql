@@ -1,4 +1,4 @@
--- HOME tablosu
+-- HOME table
 CREATE TABLE IF NOT EXISTS home (
     id SERIAL PRIMARY KEY,
     title VARCHAR(255) NOT NULL,
@@ -6,9 +6,9 @@ CREATE TABLE IF NOT EXISTS home (
 );
 
 INSERT INTO home (title, description) VALUES 
-('Hoşgeldiniz', 'Bu benim portföy sitem.');
+('Welcome', 'This is my portfolio site.');
 
--- CONTACT tablosu
+-- CONTACT table
 CREATE TABLE IF NOT EXISTS contact (
     id SERIAL PRIMARY KEY,
     email VARCHAR(255) NOT NULL,
@@ -17,9 +17,9 @@ CREATE TABLE IF NOT EXISTS contact (
 );
 
 INSERT INTO contact (email, phone, message) VALUES 
-('kuzey@example.com', '555-1234', 'İletişim mesajı.');
+('kuzey@example.com', '555-1234', 'Contact message.');
 
--- PROJECTS tablosu
+-- PROJECTS table
 CREATE TABLE IF NOT EXISTS projects (
     id SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
@@ -28,18 +28,18 @@ CREATE TABLE IF NOT EXISTS projects (
 );
 
 INSERT INTO projects (name, description, message) VALUES 
-('Projex 1', 'İlk proje açıklaması.', 'Bu proje hakkında mesaj.');
+('Project 1', 'First project description.', 'Message about this project.');
 
--- ABOUT tablosu
+-- ABOUT table
 CREATE TABLE IF NOT EXISTS about (
     id SERIAL PRIMARY KEY,
     content TEXT NOT NULL
 );
 
 INSERT INTO about (content) VALUES 
-('Bu benim hakkımda bölümüm.');
+('This is my about section.');
 
--- USERS tablosu (Admin paneli için)
+-- USERS table (for Admin panel)
 CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
     username VARCHAR(100) NOT NULL UNIQUE,

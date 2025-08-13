@@ -1,106 +1,107 @@
-package contact // contact paketi olarak tanımlandı
+package contact // Defined as contact package
 
 import (
-	"context"          // Veritabanı işlemlerinde context için
-	"fmt"              // Konsola yazdırma ve formatlama için
-	"net/http"         // HTTP statü kodları için
-	"strconv"          // String-integer dönüşümü için
-	"github.com/gin-gonic/gin" // Gin framework kullanımı
-	"github.com/jackc/pgx/v5"  // PostgreSQL bağlantı kütüphanesi
+	"context"  // For context in database operations
+	"fmt"      // For printing and formatting to console
+	"net/http" // For HTTP status codes
+	"strconv"  // For string-integer conversion
+
+	"github.com/gin-gonic/gin" // Gin framework usage
+	"github.com/jackc/pgx/v5"  // PostgreSQL connection library
 )
 
-// Contact struct contact tablosunu temsil eder
+// Contact struct represents the contact table
 type Contact struct {
-	ID      int    `json:"id"`      // ID alanı, JSON'da "id" olarak gönderilir
-	Email   string `json:"email"`   // Email alanı, JSON'da "email"
-	Phone   string `json:"phone"`   // Telefon numarası, JSON'da "phone"
-	Message string `json:"message"` // Mesaj içeriği, JSON'da "message"
+	ID      int    `json:"id"`      // ID field, sent as "id" in JSON
+	Email   string `json:"email"`   // Email field, sent as "email" in JSON
+	Phone   string `json:"phone"`   // Phone number, sent as "phone" in JSON
+	Message string `json:"message"` // Message content, sent as "message" in JSON
 }
 
-var Conn *pgx.Conn // Global veritabanı bağlantısı tutulur
+var Conn *pgx.Conn // Global database connection is stored
 
 func SetDB(conn *pgx.Conn) {
-	Conn = conn // Dışarıdan gelen bağlantı global Conn değişkenine atanır
+	Conn = conn // The incoming connection is assigned to the global Conn variable
 }
 
 func DeleteContact(c *gin.Context) {
-	idStr := c.Param("id") // URL parametresinden ID alınır (/api/contact/:id)
-	id, err := strconv.Atoi(idStr) // String ID integer'a çevrilir
+	idStr := c.Param("id")         // Get ID from URL parameter (/api/contact/:id)
+	id, err := strconv.Atoi(idStr) // Convert string ID to integer
 	if err != nil {
-		fmt.Println("ID dönüştürme hatası:", err) // Hata konsola yazılır
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Geçersiz ID"}) // 400 Bad Request dönülür
+		fmt.Println("ID conversion error:", err)                    // Print error to console
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"}) // Return 400 Bad Request
 		return
 	}
 
-	_, err = Conn.Exec(context.Background(), "DELETE FROM contact WHERE id=$1", id) // Silme sorgusu çalıştırılır
+	_, err = Conn.Exec(context.Background(), "DELETE FROM contact WHERE id=$1", id) // Execute delete query
 	if err != nil {
-		fmt.Println("Silme hatası:", err) // Hata konsola yazılır
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Silme işlemi başarısız"}) // 500 Internal Server Error dönülür
+		fmt.Println("Delete error:", err)                                                 // Print error to console
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Delete operation failed"}) // Return 500 Internal Server Error
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("Contact ID %d başarıyla silindi", id)}) // Başarı mesajı JSON olarak dönülür
+	c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("Contact ID %d deleted successfully", id)}) // Return success message as JSON
 }
 
 func GetContacts(c *gin.Context) {
-	rows, err := Conn.Query(context.Background(), "SELECT id, email, phone, message FROM contact") // Tüm contact kayıtları çekilir
+	rows, err := Conn.Query(context.Background(), "SELECT id, email, phone, message FROM contact") // Fetch all contact records
 	if err != nil {
-		fmt.Println("Veri çekme hatası:", err) // Hata konsola yazılır
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Veri alınamadı"}) // 500 dönülür
+		fmt.Println("Data fetch error:", err)                                                 // Print error to console
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Data could not be retrieved"}) // Return 500
 		return
 	}
-	defer rows.Close() // Fonksiyon sonunda kaynak kapatılır
+	defer rows.Close() // Close resource at the end of the function
 
-	var contacts []Contact // Contact struct'larından oluşan liste
-	for rows.Next() { // Satır satır döngü
+	var contacts []Contact // List of Contact structs
+	for rows.Next() {      // Loop row by row
 		var cct Contact
 		if err := rows.Scan(&cct.ID, &cct.Email, &cct.Phone, &cct.Message); err != nil {
-			fmt.Println("Satır okunurken hata:", err) // Hata konsola yazılır
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Satır okunamadı"}) // 500 dönülür
+			fmt.Println("Error reading row:", err)                                          // Print error to console
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Row could not be read"}) // Return 500
 			return
 		}
-		contacts = append(contacts, cct) // Listeye ekle
+		contacts = append(contacts, cct) // Add to list
 	}
 
-	c.JSON(http.StatusOK, contacts) // JSON olarak tüm kayıtları dön
+	c.JSON(http.StatusOK, contacts) // Return all records as JSON
 }
 
 func UpdateContact(c *gin.Context) {
 	var contact Contact
-	if err := c.ShouldBindJSON(&contact); err != nil { // JSON verisi struct'a bind edilir
-		fmt.Println("JSON çözümleme hatası:", err) // Hata konsola yazılır
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Geçersiz veri"}) // 400 dönülür
+	if err := c.ShouldBindJSON(&contact); err != nil { // Bind JSON data to struct
+		fmt.Println("JSON parsing error:", err)                       // Print error to console
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid data"}) // Return 400
 		return
 	}
 
 	_, err := Conn.Exec(context.Background(),
 		"UPDATE contact SET email=$1, phone=$2, message=$3 WHERE id=$4",
-		contact.Email, contact.Phone, contact.Message, contact.ID) // Güncelleme sorgusu çalıştırılır
+		contact.Email, contact.Phone, contact.Message, contact.ID) // Execute update query
 	if err != nil {
-		fmt.Println("Veritabanı güncelleme hatası:", err) // Hata konsola yazılır
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Güncelleme başarısız"}) // 500 dönülür
+		fmt.Println("Database update error:", err)                              // Print error to console
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Update failed"}) // Return 500
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("Contact ID %d başarıyla güncellendi", contact.ID)}) // Başarı mesajı dönülür
+	c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("Contact ID %d updated successfully", contact.ID)}) // Return success message
 }
 
 func CreateContact(c *gin.Context) {
 	var contact Contact
-	if err := c.ShouldBindJSON(&contact); err != nil { // JSON verisi struct'a bind edilir
-		fmt.Println("JSON çözümleme hatası:", err) // Hata konsola yazılır
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Geçersiz veri"}) // 400 dönülür
+	if err := c.ShouldBindJSON(&contact); err != nil { // Bind JSON data to struct
+		fmt.Println("JSON parsing error:", err)                       // Print error to console
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid data"}) // Return 400
 		return
 	}
 
 	_, err := Conn.Exec(context.Background(),
 		"INSERT INTO contact (email, phone, message) VALUES ($1, $2, $3)",
-		contact.Email, contact.Phone, contact.Message) // Yeni kayıt ekleme sorgusu çalıştırılır
+		contact.Email, contact.Phone, contact.Message) // Execute insert query
 	if err != nil {
-		fmt.Println("Veritabanı ekleme hatası:", err) // Hata konsola yazılır
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Kayıt eklenemedi"}) // 500 dönülür
+		fmt.Println("Database insert error:", err)                                          // Print error to console
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Record could not be added"}) // Return 500
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"message": "Yeni iletişim kaydı başarıyla eklendi"}) // Başarı mesajı 201 ile dönülür
+	c.JSON(http.StatusCreated, gin.H{"message": "New contact record added successfully"}) // Return success message with 201
 }

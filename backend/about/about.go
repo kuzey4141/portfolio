@@ -1,106 +1,112 @@
-package about // about paketi tanımlanır, bu dosyadaki tüm kodlar bu pakete aittir
+package about // about package is defined, all code in this file belongs to this package
 
 import (
-	"context"  // Veritabanı işlemleri için context kullanılır
-	"fmt"      // Terminale hata veya bilgi mesajı yazmak için
-	"net/http" // HTTP statü kodları için
-	"strconv"  // String ifadeleri integer'a çevirmek için (örneğin ID)
+	"context"  // context is used for database operations
+	"fmt"      // For writing error or information messages to the terminal
+	"net/http" // For HTTP status codes
+	"strconv"  // To convert string expressions to integer (for example ID)
 
-	"github.com/gin-gonic/gin" // Gin framework'ü kullanmak için
-	"github.com/jackc/pgx/v5"  // PostgreSQL veritabanı ile iletişim kurmak için pgx kütüphanesi
+	"github.com/gin-gonic/gin" // To use the Gin framework
+	"github.com/jackc/pgx/v5"  // To communicate with PostgreSQL database using pgx library
 )
 
-// About struct'ı, veritabanındaki "about" tablosundaki bir satırı temsil eder
+// About struct represents a row in the "about" table in the database
 type About struct {
-	ID      int    `json:"id"`      // JSON çıktısında "id" alanı olarak gösterilir
-	Content string `json:"content"` // JSON çıktısında "content" alanı olarak gösterilir
+	ID      int    `json:"id"`      // Displayed as "id" field in JSON output
+	Content string `json:"content"` // Displayed as "content" field in JSON output
 }
 
-var Conn *pgx.Conn // Veritabanı bağlantısını global olarak tutacak değişken
+var Conn *pgx.Conn // Variable to hold the database connection globally
 
-// SetDB fonksiyonu, dışarıdan alınan veritabanı bağlantısını bu pakette kullanılmak üzere ayarlar
+// SetDB function sets the externally received database connection to be used in this package
 func SetDB(conn *pgx.Conn) {
-	Conn = conn // Gelen bağlantı global değişkene atanır
+	Conn = conn // Incoming connection is assigned to the global variable
 }
 
-// GetAbouts fonksiyonu, veritabanından tüm "about" kayıtlarını çeker ve JSON olarak döner
+// GetAbouts function retrieves all "about" records from the database and returns them as JSON
 func GetAbouts(c *gin.Context) {
-	rows, err := Conn.Query(context.Background(), "SELECT id, content FROM about") // SQL sorgusu çalıştırılır
+	rows, err := Conn.Query(context.Background(), "SELECT id, content FROM about") // SQL query is executed
 	if err != nil {
-		fmt.Println(err)                                                         // Hata varsa terminale yazdırılır
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Veri alınamadı"}) // HTTP 500 hatası JSON ile dönülür
+		fmt.Println(err)                                                                      // If there is an error, print to terminal
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Data could not be retrieved"}) // Return HTTP 500 error as JSON
 		return
 	}
-	defer rows.Close() // Sorgu tamamlandıktan sonra kaynak serbest bırakılır
+	defer rows.Close() // Release resources after the query is completed
 
-	var abouts []About // Gelen verileri tutmak için boş bir slice tanımlanır
-	for rows.Next() {  // Her satır için döngü
-		var a About                                          // Geçici About nesnesi
-		if err := rows.Scan(&a.ID, &a.Content); err != nil { // Satırdaki veriler struct'a atanır
-			fmt.Println(err)                                                          // Hata varsa terminale yazdır
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Satır okunamadı"}) // Hata varsa JSON dön
+	var abouts []About // Empty slice to store incoming data
+	for rows.Next() {  // Loop for each row
+		var a About                                          // Temporary About object
+		if err := rows.Scan(&a.ID, &a.Content); err != nil { // Row data is assigned to struct
+			fmt.Println(err)                                                                // Print error if exists
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Row could not be read"}) // Return error as JSON
 			return
 		}
-		abouts = append(abouts, a) // Struct slice'a eklenir
+		abouts = append(abouts, a) // Add struct to slice
 	}
 
-	c.JSON(http.StatusOK, abouts) // JSON olarak tüm kayıtları dön
+	c.JSON(http.StatusOK, abouts) // Return all records as JSON
 }
 
-// DeleteAbout fonksiyonu, belirtilen ID'ye sahip about kaydını siler
+// DeleteAbout function deletes the about record with the specified ID
 func DeleteAbout(c *gin.Context) {
-	idStr := c.Param("id")         // URL parametresinden ID alınır (/api/about/:id şeklinde)
-	id, err := strconv.Atoi(idStr) // String ID integer'a çevrilir
+	idStr := c.Param("id")         // Get ID from URL parameter (/api/about/:id format)
+	id, err := strconv.Atoi(idStr) // Convert string ID to integer
 	if err != nil {
-		fmt.Println(err)                                             // Hata yazdırılır
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Geçersiz ID"}) // Geçersiz ID ise 400 dönülür
+		fmt.Println(err)                                            // Print error
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"}) // Return 400 if invalid ID
 		return
 	}
 
-	_, err = Conn.Exec(context.Background(), "DELETE FROM about WHERE id=$1", id) // Silme sorgusu çalıştırılır
+	_, err = Conn.Exec(context.Background(), "DELETE FROM about WHERE id=$1", id) // Execute delete query
 	if err != nil {
-		fmt.Println(err)                                                                 // Hata yazdırılır
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Silme işlemi başarısız"}) // Başarısızsa 500 dön
+		fmt.Println(err)                                                                  // Print error
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Delete operation failed"}) // Return 500 if failed
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "About kaydı silindi."}) // Başarı mesajı JSON olarak dönülür
+	c.JSON(http.StatusOK, gin.H{"message": "About record deleted."}) // Return success message as JSON
 }
 
-// UpdateAbout fonksiyonu, belirtilen ID’ye sahip about kaydının içeriğini günceller
+// UpdateAbout function updates the content of the about record with the specified ID
 func UpdateAbout(c *gin.Context) {
 	var a About
-	if err := c.ShouldBindJSON(&a); err != nil { // JSON verisi struct'a bind edilir
-		fmt.Println("JSON çözümleme hatası:", err)                     // Hata varsa yazdırılır
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Geçersiz veri"}) // Hatalı veri ise 400 dönülür
+	if err := c.ShouldBindJSON(&a); err != nil { // Bind JSON data to struct
+		fmt.Println("JSON parsing error:", err)                       // Print error if exists
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid data"}) // Return 400 if invalid data
 		return
 	}
+	var ad string
 
-	_, err := Conn.Exec(context.Background(), "UPDATE about SET content=$1 WHERE id=$2", a.Content, a.ID) // Güncelleme sorgusu çalıştırılır
+	fmt.Println("What is your name?:")
+	fmt.Scan(&ad)
+
+	fmt.Println("Welcome,", ad)
+
+	_, err := Conn.Exec(context.Background(), "UPDATE about SET content=$1 WHERE id=$2", a.Content, a.ID) // Execute update query
 	if err != nil {
-		fmt.Println("Veritabanı güncelleme hatası:", err)                              // Hata yazdırılır
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Güncelleme başarısız"}) // Başarısızsa 500 dönülür
+		fmt.Println("Database update error:", err)                              // Print error
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Update failed"}) // Return 500 if failed
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("About ID %d başarıyla güncellendi", a.ID)}) // Başarı mesajı JSON ile dönülür
+	c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("About ID %d updated successfully", a.ID)}) // Return success message as JSON
 }
 
-// CreateAbout fonksiyonu, yeni bir about kaydı ekler
+// CreateAbout function adds a new about record
 func CreateAbout(c *gin.Context) {
 	var a About
-	if err := c.ShouldBindJSON(&a); err != nil { // JSON verisi struct'a bind edilir
-		fmt.Println("JSON çözümleme hatası:", err)                     // Hata varsa yazdırılır
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Geçersiz veri"}) // Hatalı veri ise 400 dönülür
+	if err := c.ShouldBindJSON(&a); err != nil { // Bind JSON data to struct
+		fmt.Println("JSON parsing error:", err)                       // Print error if exists
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid data"}) // Return 400 if invalid data
 		return
 	}
 
-	_, err := Conn.Exec(context.Background(), "INSERT INTO about (content) VALUES ($1)", a.Content) // Yeni kayıt ekleme sorgusu çalıştırılır
+	_, err := Conn.Exec(context.Background(), "INSERT INTO about (content) VALUES ($1)", a.Content) // Execute insert query
 	if err != nil {
-		fmt.Println("Veritabanı ekleme hatası:", err)                              // Hata yazdırılır
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Kayıt eklenemedi"}) // Eklenemezse 500 dönülür
+		fmt.Println("Database insert error:", err)                                          // Print error
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Record could not be added"}) // Return 500 if failed
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"message": "Yeni About kaydı başarıyla eklendi"}) // Başarı mesajı 201 ile dönülür
+	c.JSON(http.StatusCreated, gin.H{"message": "New About record added successfully"}) // Return success message with 201
 }

@@ -1,100 +1,100 @@
 package home
 
 import (
-	"context"       // Veritabanı işlemleri için context
-	"fmt"           // Formatlı yazdırma için
-	"net/http"      // HTTP statü kodları için
-	"strconv"       // String to int dönüşümü için
+	"context"  // Context for database operations
+	"fmt"      // For formatted printing
+	"net/http" // For HTTP status codes
+	"strconv"  // For string to int conversion
 
-	"github.com/gin-gonic/gin"    // Gin framework
-	"github.com/jackc/pgx/v5"     // PostgreSQL bağlantısı için pgx kütüphanesi
+	"github.com/gin-gonic/gin" // Gin framework
+	"github.com/jackc/pgx/v5"  // pgx library for PostgreSQL connection
 )
 
-// Home struct, home tablosundaki verileri temsil eder
+// Home struct represents the data in the home table
 type Home struct {
-	ID          int    `json:"id"`          // JSON çıktısında id olarak görünür
-	Title       string `json:"title"`       // Başlık alanı
-	Description string `json:"description"` // Açıklama alanı
+	ID          int    `json:"id"`          // Appears as "id" in JSON output
+	Title       string `json:"title"`       // Title field
+	Description string `json:"description"` // Description field
 }
 
-// Conn, veritabanı bağlantısı için global değişken
+// Conn is a global variable for the database connection
 var Conn *pgx.Conn
 
-// SetDB fonksiyonu, main.go'dan veritabanı bağlantısını alır
+// SetDB function receives the database connection from main.go
 func SetDB(conn *pgx.Conn) {
 	Conn = conn
 }
 
-// DeleteHome belirli ID'ye göre bir home kaydını siler
+// DeleteHome deletes a home record by a specific ID
 func DeleteHome(c *gin.Context) {
-	idStr := c.Param("id") // URL parametresinden id'yi al (/api/home/:id şeklinde)
-	id, err := strconv.Atoi(idStr) // string'i integer'a çevir
+	idStr := c.Param("id")         // Get id from URL parameter (/api/home/:id format)
+	id, err := strconv.Atoi(idStr) // Convert string to integer
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Geçersiz ID"}) // Hatalı ID ise 400 dön
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"}) // If invalid ID, return 400
 		return
 	}
 
-	_, err = Conn.Exec(context.Background(), "DELETE FROM home WHERE id=$1", id) // Veritabanından silme sorgusu
+	_, err = Conn.Exec(context.Background(), "DELETE FROM home WHERE id=$1", id) // Delete query from database
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Silme işlemi başarısız"}) // Silme başarısızsa 500 dön
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Delete operation failed"}) // If delete fails, return 500
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("Home ID %d başarıyla silindi", id)}) // Başarı mesajı dön
+	c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("Home ID %d deleted successfully", id)}) // Return success message
 }
 
-// GetHomes, HTTP GET isteği geldiğinde home tablosundaki tüm verileri döner
+// GetHomes returns all records from the home table when an HTTP GET request is received
 func GetHomes(c *gin.Context) {
-	rows, err := Conn.Query(context.Background(), "SELECT id, title, description FROM home") // Tüm home kayıtlarını seç
+	rows, err := Conn.Query(context.Background(), "SELECT id, title, description FROM home") // Select all home records
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Veri alınamadı"}) // Veri çekilemezse 500 dön
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Data could not be retrieved"}) // If data cannot be fetched, return 500
 		return
 	}
-	defer rows.Close() // İş bittiğinde bağlantıyı kapat
+	defer rows.Close() // Close the connection when done
 
-	var homes []Home              // Boş slice oluştur
-	for rows.Next() {             // Satırlar arasında döngü
+	var homes []Home  // Create empty slice
+	for rows.Next() { // Loop through rows
 		var h Home
-		if err := rows.Scan(&h.ID, &h.Title, &h.Description); err != nil { // Satırdan verileri al
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Satır okunamadı"}) // Hata olursa 500 dön
+		if err := rows.Scan(&h.ID, &h.Title, &h.Description); err != nil { // Get data from row
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Row could not be read"}) // If error, return 500
 			return
 		}
-		homes = append(homes, h) // Slice'a ekle
+		homes = append(homes, h) // Add to slice
 	}
 
-	c.JSON(http.StatusOK, homes) // JSON olarak tüm kayıtları dön
+	c.JSON(http.StatusOK, homes) // Return all records as JSON
 }
 
-// UpdateHome bir home kaydını günceller
+// UpdateHome updates a home record
 func UpdateHome(c *gin.Context) {
 	var h Home
-	if err := c.ShouldBindJSON(&h); err != nil { // JSON verisini struct'a bind et (decode et)
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Geçersiz veri"}) // JSON hatalıysa 400 dön
+	if err := c.ShouldBindJSON(&h); err != nil { // Bind JSON data to struct (decode)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid data"}) // If JSON invalid, return 400
 		return
 	}
 
-	_, err := Conn.Exec(context.Background(), "UPDATE home SET title=$1, description=$2 WHERE id=$3", h.Title, h.Description, h.ID) // Güncelleme sorgusu
+	_, err := Conn.Exec(context.Background(), "UPDATE home SET title=$1, description=$2 WHERE id=$3", h.Title, h.Description, h.ID) // Update query
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Güncelleme başarısız"}) // Başarısızsa 500 dön
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Update failed"}) // If fails, return 500
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("Home ID %d başarıyla güncellendi", h.ID)}) // Başarı mesajı dön
+	c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("Home ID %d updated successfully", h.ID)}) // Return success message
 }
 
-// CreateHome fonksiyonu, yeni bir home kaydı ekler
+// CreateHome function adds a new home record
 func CreateHome(c *gin.Context) {
 	var h Home
-	if err := c.ShouldBindJSON(&h); err != nil { // JSON verisini struct'a bind et
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Geçersiz veri"}) // Geçersiz veri ise 400 dön
+	if err := c.ShouldBindJSON(&h); err != nil { // Bind JSON data to struct
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid data"}) // If invalid data, return 400
 		return
 	}
 
-	_, err := Conn.Exec(context.Background(), "INSERT INTO home (title, description) VALUES ($1, $2)", h.Title, h.Description) // Yeni kayıt ekle
+	_, err := Conn.Exec(context.Background(), "INSERT INTO home (title, description) VALUES ($1, $2)", h.Title, h.Description) // Insert new record
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Kayıt eklenemedi"}) // Eklenemezse 500 dön
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Record could not be added"}) // If cannot be added, return 500
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"message": "Home kaydı başarıyla eklendi"}) // Başarı mesajı dön (201)
+	c.JSON(http.StatusCreated, gin.H{"message": "Home record added successfully"}) // Return success message (201)
 }

@@ -19,14 +19,12 @@ func SetupRoutes(r *gin.Engine, dbConn *pgx.Conn) {
 	contact.SetDB(dbConn)
 	user.SetDB(dbConn)
 
-	
 	r.GET("/api/home", home.GetHomes)
 	r.GET("/api/about", about.GetAbouts)
 	r.GET("/api/projects", projects.GetProjects)
 	r.GET("/api/contact", contact.GetContacts)
 	r.GET("/api/user", user.GetUsers)
 
-	
 	r.DELETE("/api/home/:id", home.DeleteHome)
 	r.DELETE("/api/about/:id", about.DeleteAbout)
 	r.DELETE("/api/projects/:id", projects.DeleteProject)

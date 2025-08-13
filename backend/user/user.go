@@ -1,50 +1,51 @@
-package user // user paketi
+package user // user package
 
 import (
-	"context"            // DB işlemleri için context
-	"fmt"                // Konsola yazdırmak için
-	"strconv"            // String - int dönüşümü için
+	"context" // context for DB operations
+	"fmt"     // for printing to console
+	"strconv" // for string - int conversion
+
 	"github.com/gin-gonic/gin" // Gin framework
-	"github.com/jackc/pgx/v5"  // PostgreSQL kütüphanesi
+	"github.com/jackc/pgx/v5"  // PostgreSQL library
 )
 
-// User struct, users tablosundaki verileri temsil eder
+// User struct represents data in the users table
 type User struct {
-	ID       int    `json:"id"`                 // JSON'da id alanı
-	Username string `json:"username"`           // JSON'da kullanıcı adı
-	Password string `json:"password,omitempty"` // JSON'da şifre (gönderilmezse boş gösterilir)
-	Email    string `json:"email"`              // JSON'da email
+	ID       int    `json:"id"`                 // id field in JSON
+	Username string `json:"username"`           // username field in JSON
+	Password string `json:"password,omitempty"` // password in JSON (shown empty if not provided)
+	Email    string `json:"email"`              // email in JSON
 }
 
-var Conn *pgx.Conn // Global veritabanı bağlantısı
+var Conn *pgx.Conn // Global database connection
 
 func SetDB(conn *pgx.Conn) {
-	Conn = conn // Bağlantıyı set et
+	Conn = conn // Set the connection
 }
 
-// DeleteUser silme işlemi
+// DeleteUser delete operation
 func DeleteUser(c *gin.Context) {
-	idStr := c.Param("id")              // URL'den id parametresi al
-	id, err := strconv.Atoi(idStr)      // String to int dönüştür
+	idStr := c.Param("id")         // Get id parameter from URL
+	id, err := strconv.Atoi(idStr) // Convert string to int
 	if err != nil {
-		c.JSON(400, gin.H{"error": "Geçersiz ID"}) // Hatalı ID ise JSON ile hata döndür
+		c.JSON(400, gin.H{"error": "Invalid ID"}) // If invalid ID, return JSON error
 		return
 	}
 
-	_, err = Conn.Exec(context.Background(), "DELETE FROM users WHERE id=$1", id) // DB'den sil
+	_, err = Conn.Exec(context.Background(), "DELETE FROM users WHERE id=$1", id) // Delete from DB
 	if err != nil {
-		c.JSON(500, gin.H{"error": "Silme işlemi başarısız"}) // DB hatası ise JSON hata
+		c.JSON(500, gin.H{"error": "Delete operation failed"}) // DB error, return JSON error
 		return
 	}
 
-	c.JSON(200, gin.H{"message": fmt.Sprintf("User ID %d başarıyla silindi", id)}) // Başarı mesajı JSON
+	c.JSON(200, gin.H{"message": fmt.Sprintf("User ID %d deleted successfully", id)}) // Success message JSON
 }
 
-// GetUsers kullanıcı listesini döner (şifre hariç)
+// GetUsers returns the list of users (excluding password)
 func GetUsers(c *gin.Context) {
-	rows, err := Conn.Query(context.Background(), "SELECT id, username, email FROM users") // Kullanıcıları çek
+	rows, err := Conn.Query(context.Background(), "SELECT id, username, email FROM users") // Fetch users
 	if err != nil {
-		c.JSON(500, gin.H{"error": "Veri alınamadı"}) // Hata varsa JSON dön
+		c.JSON(500, gin.H{"error": "Data could not be retrieved"}) // If error, return JSON
 		return
 	}
 	defer rows.Close()
@@ -53,55 +54,55 @@ func GetUsers(c *gin.Context) {
 	for rows.Next() {
 		var u User
 		if err := rows.Scan(&u.ID, &u.Username, &u.Email); err != nil {
-			c.JSON(500, gin.H{"error": "Satır okunamadı"}) // Satır okuma hatası
+			c.JSON(500, gin.H{"error": "Row could not be read"}) // Row read error
 			return
 		}
 		users = append(users, u)
 	}
 
-	c.JSON(200, users) // JSON olarak kullanıcı listesini döndür
+	c.JSON(200, users) // Return user list as JSON
 }
 
-// UpdateUser kullanıcı güncelleme işlemi
+// UpdateUser user update operation
 func UpdateUser(c *gin.Context) {
 	var u User
-	if err := c.BindJSON(&u); err != nil { // JSON gövdesini User struct'a bağla
-		c.JSON(400, gin.H{"error": "Geçersiz veri"}) // Hatalı veri ise JSON döndür
+	if err := c.BindJSON(&u); err != nil { // Bind JSON body to User struct
+		c.JSON(400, gin.H{"error": "Invalid data"}) // If invalid data, return JSON
 		return
 	}
 
 	if u.Password != "" {
-		_, err := Conn.Exec(context.Background(), "UPDATE users SET username=$1, email=$2, password=$3 WHERE id=$4", u.Username, u.Email, u.Password, u.ID) // Şifre dahil güncelle
+		_, err := Conn.Exec(context.Background(), "UPDATE users SET username=$1, email=$2, password=$3 WHERE id=$4", u.Username, u.Email, u.Password, u.ID) // Update including password
 		if err != nil {
-			c.JSON(500, gin.H{"error": "Güncelleme başarısız"})
+			c.JSON(500, gin.H{"error": "Update failed"})
 			return
 		}
 	} else {
-		_, err := Conn.Exec(context.Background(), "UPDATE users SET username=$1, email=$2 WHERE id=$3", u.Username, u.Email, u.ID) // Şifresiz güncelle
+		_, err := Conn.Exec(context.Background(), "UPDATE users SET username=$1, email=$2 WHERE id=$3", u.Username, u.Email, u.ID) // Update without password
 		if err != nil {
-			c.JSON(500, gin.H{"error": "Güncelleme başarısız"})
+			c.JSON(500, gin.H{"error": "Update failed"})
 			return
 		}
 	}
 
-	c.JSON(200, gin.H{"message": fmt.Sprintf("User ID %d başarıyla güncellendi", u.ID)}) // Başarı mesajı
+	c.JSON(200, gin.H{"message": fmt.Sprintf("User ID %d updated successfully", u.ID)}) // Success message
 }
 
-// CreateUser yeni kullanıcı ekleme
+// CreateUser create new user
 func CreateUser(c *gin.Context) {
 	var u User
-	if err := c.BindJSON(&u); err != nil { // JSON'u User struct'a bağla
-		c.JSON(400, gin.H{"error": "Geçersiz veri"})
+	if err := c.BindJSON(&u); err != nil { // Bind JSON to User struct
+		c.JSON(400, gin.H{"error": "Invalid data"})
 		return
 	}
 
-	// Şifre hashleme işlemi burada yapılmalı, şimdilik düz kayıt
+	// Password hashing should be done here, currently storing as plain text
 
-	_, err := Conn.Exec(context.Background(), "INSERT INTO users (username, password, email) VALUES ($1, $2, $3)", u.Username, u.Password, u.Email) // DB ekleme
+	_, err := Conn.Exec(context.Background(), "INSERT INTO users (username, password, email) VALUES ($1, $2, $3)", u.Username, u.Password, u.Email) // Insert into DB
 	if err != nil {
-		c.JSON(500, gin.H{"error": "Kullanıcı eklenemedi"})
+		c.JSON(500, gin.H{"error": "User could not be created"})
 		return
 	}
 
-	c.JSON(201, gin.H{"message": "Kullanıcı başarıyla oluşturuldu"}) // Başarı mesajı
+	c.JSON(201, gin.H{"message": "User created successfully"}) // Success message
 }
