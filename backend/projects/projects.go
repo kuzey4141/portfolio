@@ -15,7 +15,7 @@ type Project struct {
 	ID          int    `json:"id"`          // shown as id in JSON
 	Name        string `json:"name"`        // shown as name in JSON
 	Description string `json:"description"` // shown as description in JSON
-	Url         string `json:"url"`         // shown as url in JSON
+	Message     string `json:"message"`     // shown as message in JSON
 }
 
 var Conn *pgx.Conn // Global database connection
@@ -44,7 +44,7 @@ func DeleteProject(c *gin.Context) {
 
 // GetProjects returns all projects as JSON
 func GetProjects(c *gin.Context) {
-	rows, err := Conn.Query(context.Background(), "SELECT id, name, description, url FROM projects") // Fetch all projects
+	rows, err := Conn.Query(context.Background(), "SELECT id, name, description, message FROM projects") // message field eklendi
 	if err != nil {
 		c.JSON(500, gin.H{"error": "Data could not be retrieved"}) // Return JSON error if failed
 		return
@@ -54,7 +54,7 @@ func GetProjects(c *gin.Context) {
 	var projects []Project
 	for rows.Next() {
 		var p Project
-		if err := rows.Scan(&p.ID, &p.Name, &p.Description, &p.Url); err != nil {
+		if err := rows.Scan(&p.ID, &p.Name, &p.Description, &p.Message); err != nil { // Message olarak değişti
 			c.JSON(500, gin.H{"error": "Could not read row"}) // Row read error
 			return
 		}
@@ -79,8 +79,8 @@ func UpdateProject(c *gin.Context) {
 		return
 	}
 
-	sql := `UPDATE projects SET name=$1, description=$2, url=$3 WHERE id=$4`
-	_, err = Conn.Exec(context.Background(), sql, p.Name, p.Description, p.Url, id) // DB update
+	sql := `UPDATE projects SET name=$1, description=$2, message=$3 WHERE id=$4`
+	_, err = Conn.Exec(context.Background(), sql, p.Name, p.Description, p.Message, id) // Message olarak değişti
 	if err != nil {
 		c.JSON(500, gin.H{"error": "Update failed"}) // DB error
 		return
@@ -98,8 +98,8 @@ func CreateProject(c *gin.Context) {
 	}
 
 	_, err := Conn.Exec(context.Background(),
-		"INSERT INTO projects (name, description, url) VALUES ($1, $2, $3)",
-		p.Name, p.Description, p.Url) // Insert into DB
+		"INSERT INTO projects (name, description, message) VALUES ($1, $2, $3)",
+		p.Name, p.Description, p.Message) // Message olarak değişti
 	if err != nil {
 		c.JSON(500, gin.H{"error": "Record could not be added"}) // Return error if failed
 		return

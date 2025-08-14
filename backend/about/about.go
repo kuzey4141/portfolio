@@ -75,12 +75,6 @@ func UpdateAbout(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid data"}) // Return 400 if invalid data
 		return
 	}
-	var ad string
-
-	fmt.Println("What is your name?:")
-	fmt.Scan(&ad)
-
-	fmt.Println("Welcome,", ad)
 
 	_, err := Conn.Exec(context.Background(), "UPDATE about SET content=$1 WHERE id=$2", a.Content, a.ID) // Execute update query
 	if err != nil {
