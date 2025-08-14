@@ -1,0 +1,42 @@
+echo "# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+go.work
+
+# Environment variables
+.env
+config.json
+*.key
+
+# Database files
+*.db
+*.sqlite
+
+# Log files
+*.log
+logs/
+
+# IDE and Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Node modules
+node_modules/
+dist/
+
+# Temporary files
+tmp/
+temp/" > .gitignore
+
+.env
