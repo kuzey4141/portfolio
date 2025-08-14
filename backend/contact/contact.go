@@ -1,10 +1,11 @@
 package contact // Defined as contact package
 
 import (
-	"context"  // For context in database operations
-	"fmt"      // For printing and formatting to console
-	"net/http" // For HTTP status codes
-	"strconv"  // For string-integer conversion
+	"context"        // For context in database operations
+	"fmt"            // For printing and formatting to console
+	"net/http"       // For HTTP status codes
+	"portfolio/mail" // Mail package import - ÖNEMLİ!
+	"strconv"        // For string-integer conversion
 
 	"github.com/gin-gonic/gin" // Gin framework usage
 	"github.com/jackc/pgx/v5"  // PostgreSQL connection library
@@ -86,6 +87,7 @@ func UpdateContact(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("Contact ID %d updated successfully", contact.ID)}) // Return success message
 }
 
+// CreateContact - UPDATED with mail integration
 func CreateContact(c *gin.Context) {
 	var contact Contact
 	if err := c.ShouldBindJSON(&contact); err != nil { // Bind JSON data to struct
@@ -94,6 +96,7 @@ func CreateContact(c *gin.Context) {
 		return
 	}
 
+	// Insert into database first
 	_, err := Conn.Exec(context.Background(),
 		"INSERT INTO contact (email, phone, message) VALUES ($1, $2, $3)",
 		contact.Email, contact.Phone, contact.Message) // Execute insert query
@@ -103,5 +106,21 @@ func CreateContact(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"message": "New contact record added successfully"}) // Return success message with 201
+	// Send email notification - YENİ ÖZELLİK!
+	mailData := mail.ContactMailData{
+		Name:    "Contact Form", // Contact formunda name field'ı yoksa default
+		Email:   contact.Email,
+		Phone:   contact.Phone,
+		Message: contact.Message,
+	}
+
+	// Send mail (error handling but don't block the response)
+	if mailErr := mail.SendContactMail(mailData); mailErr != nil {
+		fmt.Printf("Mail sending failed: %v\n", mailErr)
+		// Mail hatası olsa bile contact kaydedildi, başarılı response döner
+	} else {
+		fmt.Println("Contact mail sent successfully!")
+	}
+
+	c.JSON(http.StatusCreated, gin.H{"message": "Contact record added successfully and email sent"}) // Return success message with 201
 }
