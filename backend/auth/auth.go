@@ -7,7 +7,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// JWT için secret key - gerçek projede environment variable'dan alın
+// JWT için secret key - EV!
 var jwtSecret = []byte("your-secret-key-change-this-in-production")
 
 // Claims struct - JWT token içindeki bilgiler
