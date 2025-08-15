@@ -56,6 +56,33 @@ func AuthMiddleware() gin.HandlerFunc {
 	}
 }
 
+// SuperAdminMiddleware - Sadece belirli kullanıcılar için
+func SuperAdminMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Önce normal auth kontrolü yapılmış olmalı
+		username, exists := c.Get("username")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error": "Authentication required",
+			})
+			c.Abort()
+			return
+		}
+
+		// Super admin kontrolü - sadece "admin" kullanıcısı
+		if username != "admin" {
+			c.JSON(http.StatusForbidden, gin.H{
+				"error": "Super admin privileges required for user management",
+			})
+			c.Abort()
+			return
+		}
+
+		// Super admin ise devam et
+		c.Next()
+	}
+}
+
 // GetCurrentUser context'den kullanıcı bilgilerini al (helper function)
 func GetCurrentUser(c *gin.Context) (userID int, username string, exists bool) {
 	userIDInterface, exists1 := c.Get("user_id")

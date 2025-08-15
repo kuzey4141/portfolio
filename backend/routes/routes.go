@@ -38,37 +38,45 @@ func SetupRoutes(r *gin.Engine, dbConn *pgx.Conn) {
 	}
 
 	// =================
-	// PRIVATE ROUTES (Token gerektirir - Admin paneli)
+	// ADMIN ROUTES (Token gerektirir)
 	// =================
 	adminAPI := r.Group("/api/admin")
-	adminAPI.Use(middleware.AuthMiddleware()) // Bu middleware tüm admin route'larına uygulanır
+	adminAPI.Use(middleware.AuthMiddleware()) // Tüm admin route'larına auth middleware
 	{
 		// CONTACT - Gelen mesajları görme ve yönetme
 		adminAPI.GET("/contact", contact.GetContacts)          // Gelen mesajları listele
 		adminAPI.DELETE("/contact/:id", contact.DeleteContact) // Mesaj sil
-		adminAPI.PUT("/contact", contact.UpdateContact)        // Mesaj güncelle (gerekirse)
+		adminAPI.PUT("/contact", contact.UpdateContact)        // Mesaj güncelle
 
 		// HOME - Ana sayfa içeriği yönetimi
-		adminAPI.GET("/home", home.GetHomes)          // Sadmin için de gerekebilir
-		adminAPI.POST("/home", home.CreateHome)       // Yeni ana sayfa içeriği ekle
-		adminAPI.PUT("/home", home.UpdateHome)        // Ana sayfa içeriğini güncelle
-		adminAPI.DELETE("/home/:id", home.DeleteHome) // Ana sayfa içeriğini sil
+		adminAPI.GET("/home", home.GetHomes)
+		adminAPI.POST("/home", home.CreateHome)
+		adminAPI.PUT("/home", home.UpdateHome)
+		adminAPI.DELETE("/home/:id", home.DeleteHome)
 
 		// ABOUT - Hakkımda bölümü yönetimi
-		adminAPI.POST("/about", about.CreateAbout)       // Yeni hakkımda içeriği ekle
-		adminAPI.PUT("/about", about.UpdateAbout)        // Hakkımda güncelle
-		adminAPI.DELETE("/about/:id", about.DeleteAbout) // Hakkımda sil
+		adminAPI.POST("/about", about.CreateAbout)
+		adminAPI.PUT("/about", about.UpdateAbout)
+		adminAPI.DELETE("/about/:id", about.DeleteAbout)
 
 		// PROJECTS - Proje yönetimi
-		adminAPI.POST("/projects", projects.CreateProject)       // Yeni proje ekle
-		adminAPI.PUT("/projects/:id", projects.UpdateProject)    // Proje güncelle
-		adminAPI.DELETE("/projects/:id", projects.DeleteProject) // Proje sil
+		adminAPI.POST("/projects", projects.CreateProject)
+		adminAPI.PUT("/projects/:id", projects.UpdateProject)
+		adminAPI.DELETE("/projects/:id", projects.DeleteProject)
+	}
 
-		// USERS - Kullanıcı yönetimi (Admin paneli)
-		adminAPI.GET("/users", user.GetUsers)          // Kullanıcıları listele
-		adminAPI.POST("/users", user.CreateUser)       // Yeni kullanıcı ekle
-		adminAPI.PUT("/users", user.UpdateUser)        // Kullanıcı güncelle
-		adminAPI.DELETE("/users/:id", user.DeleteUser) // Kullanıcı sil
+	// =================
+	// SUPER ADMIN ROUTES (Sadece "admin" kullanıcısı)
+	// =================
+	superAdminAPI := r.Group("/api/superadmin")
+	superAdminAPI.Use(middleware.AuthMiddleware())       // Önce auth kontrol
+	superAdminAPI.Use(middleware.SuperAdminMiddleware()) // Sonra super admin kontrol
+	{
+		// USER MANAGEMENT - Sadece super admin yapabilir
+		superAdminAPI.GET("/users", user.GetUsers)          // Kullanıcıları listele
+		superAdminAPI.POST("/users", user.CreateUser)       // Yeni kullanıcı ekle
+		superAdminAPI.PUT("/users", user.UpdateUser)        // Kullanıcı güncelle
+		superAdminAPI.DELETE("/users/:id", user.DeleteUser) // Kullanıcı sil
 	}
 
 	// =================
