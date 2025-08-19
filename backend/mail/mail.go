@@ -8,13 +8,6 @@ import (
 	"github.com/resend/resend-go/v2"
 )
 
-// Mail configuration - SECURE VERSION
-var (
-	RESEND_API_KEY = getEnvOrDefault("RESEND_API_KEY", "")
-	FROM_EMAIL     = getEnvOrDefault("FROM_EMAIL", "onboarding@resend.dev")
-	TO_EMAIL       = getEnvOrDefault("TO_EMAIL", "dcnitro41@gmail.com")
-)
-
 // getEnvOrDefault gets environment variable or returns default value
 func getEnvOrDefault(key, defaultValue string) string {
 	if value := os.Getenv(key); value != "" {
@@ -24,14 +17,18 @@ func getEnvOrDefault(key, defaultValue string) string {
 }
 
 // validateConfig checks if required environment variables are set
-func validateConfig() error {
-	if RESEND_API_KEY == "" {
-		return fmt.Errorf("RESEND_API_KEY environment variable is required")
+func validateConfig() (string, string, string, error) {
+	apiKey := getEnvOrDefault("RESEND_API_KEY", "")
+	toEmail := getEnvOrDefault("TO_EMAIL", "dcnitro41@gmail.com")
+	fromEmail := getEnvOrDefault("FROM_EMAIL", "onboarding@resend.dev")
+
+	if apiKey == "" {
+		return "", "", "", fmt.Errorf("RESEND_API_KEY environment variable is required")
 	}
-	if TO_EMAIL == "" {
-		return fmt.Errorf("TO_EMAIL environment variable is required")
+	if toEmail == "" {
+		return "", "", "", fmt.Errorf("TO_EMAIL environment variable is required")
 	}
-	return nil
+	return apiKey, toEmail, fromEmail, nil
 }
 
 // ContactMailData represents contact form data for email
@@ -44,19 +41,31 @@ type ContactMailData struct {
 
 // SendContactMail sends contact form submission via email
 func SendContactMail(data ContactMailData) error {
-	// Validate configuration first
-	if err := validateConfig(); err != nil {
+	// Get environment variables fresh each time
+	apiKey, toEmail, fromEmail, err := validateConfig()
+	if err != nil {
 		log.Printf("Mail configuration error: %v", err)
 		return err
 	}
 
+	// DEBUG - API KEY CONTROL
+	fmt.Printf("=== MAIL DEBUG ===\n")
+	fmt.Printf("API Key length: %d\n", len(apiKey))
+	if len(apiKey) > 10 {
+		fmt.Printf("API Key starts with: %s\n", apiKey[:10])
+		fmt.Printf("API Key ends with: %s\n", apiKey[len(apiKey)-6:])
+	}
+	fmt.Printf("TO_EMAIL: %s\n", toEmail)
+	fmt.Printf("FROM_EMAIL: %s\n", fromEmail)
+	fmt.Printf("==================\n")
+
 	// Initialize Resend client
-	client := resend.NewClient(RESEND_API_KEY)
+	client := resend.NewClient(apiKey)
 
 	// Create email content
 	subject := "Portfolio Contact: Contact Form"
 
-	// HTML content remains the same...
+	// HTML content
 	htmlContent := `
 		<div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; margin: 0; padding: 20px; background-color: #f4f4f4;">
 			<div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 10px; box-shadow: 0 0 20px rgba(0,0,0,0.1); overflow: hidden;">
@@ -70,6 +79,17 @@ func SendContactMail(data ContactMailData) error {
 				<!-- Content -->
 				<div style="padding: 30px;">
 					
+					<!-- Name Field -->
+					<div style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-left: 4px solid #667eea; border-radius: 5px;">
+						<div style="display: flex; align-items: center; margin-bottom: 10px;">
+							<div style="width: 20px; height: 20px; background: #667eea; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; color: white; font-size: 12px; margin-right: 10px;">👤</div>
+							<div>
+								<div style="font-weight: bold; color: #333; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px;">Name</div>
+								<div style="color: #555; font-size: 16px;">` + data.Name + `</div>
+							</div>
+						</div>
+					</div>
+
 					<!-- Email Field -->
 					<div style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-left: 4px solid #667eea; border-radius: 5px;">
 						<div style="display: flex; align-items: center; margin-bottom: 10px;">
@@ -113,6 +133,7 @@ func SendContactMail(data ContactMailData) error {
 	textContent := fmt.Sprintf(`
 		New Portfolio Contact Message
 		
+		Name: %s
 		Email: %s
 		Phone: %s
 		
@@ -121,16 +142,23 @@ func SendContactMail(data ContactMailData) error {
 		
 		---
 		This message was sent from your portfolio website.
-	`, data.Email, data.Phone, data.Message)
+	`, data.Name, data.Email, data.Phone, data.Message)
 
 	// Prepare email parameters
 	params := &resend.SendEmailRequest{
-		From:    FROM_EMAIL,
-		To:      []string{TO_EMAIL},
+		From:    fromEmail,
+		To:      []string{toEmail},
 		Subject: subject,
 		Html:    htmlContent,
 		Text:    textContent,
 	}
+
+	// DEBUG - EMAIL PARAMS
+	fmt.Printf("=== EMAIL PARAMS DEBUG ===\n")
+	fmt.Printf("From: %s\n", params.From)
+	fmt.Printf("To: %v\n", params.To)
+	fmt.Printf("Subject: %s\n", params.Subject)
+	fmt.Printf("========================\n")
 
 	// Send email
 	sent, err := client.Emails.Send(params)
@@ -145,11 +173,12 @@ func SendContactMail(data ContactMailData) error {
 
 // SendWelcomeMail sends welcome email to new users (bonus feature)
 func SendWelcomeMail(userEmail, userName string) error {
-	if err := validateConfig(); err != nil {
+	apiKey, _, fromEmail, err := validateConfig()
+	if err != nil {
 		return err
 	}
 
-	client := resend.NewClient(RESEND_API_KEY)
+	client := resend.NewClient(apiKey)
 
 	subject := "Welcome to Portfolio Admin Panel!"
 
@@ -166,7 +195,7 @@ func SendWelcomeMail(userEmail, userName string) error {
 	`, userName)
 
 	params := &resend.SendEmailRequest{
-		From:    FROM_EMAIL,
+		From:    fromEmail,
 		To:      []string{userEmail},
 		Subject: subject,
 		Html:    htmlContent,

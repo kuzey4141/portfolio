@@ -1,13 +1,13 @@
-package about // about package is defined, all code in this file belongs to this package
+package about
 
 import (
-	"context"  // context is used for database operations
+	"context"  // Context is used for database operations
 	"fmt"      // For writing error or information messages to the terminal
 	"net/http" // For HTTP status codes
-	"strconv"  // To convert string expressions to integer (for example ID)
+	"strconv"  // To convert string expressions to integer
 
-	"github.com/gin-gonic/gin" // To use the Gin framework
-	"github.com/jackc/pgx/v5"  // To communicate with PostgreSQL database using pgx library
+	"github.com/gin-gonic/gin"        // To use the Gin framework
+	"github.com/jackc/pgx/v5/pgxpool" // To communicate with PostgreSQL database using pgxpool library
 )
 
 // About struct represents a row in the "about" table in the database
@@ -16,16 +16,16 @@ type About struct {
 	Content string `json:"content"` // Displayed as "content" field in JSON output
 }
 
-var Conn *pgx.Conn // Variable to hold the database connection globally
+var Pool *pgxpool.Pool // Variable to hold the database pool globally
 
-// SetDB function sets the externally received database connection to be used in this package
-func SetDB(conn *pgx.Conn) {
-	Conn = conn // Incoming connection is assigned to the global variable
+// SetDB function sets the externally received database pool to be used in this package
+func SetDB(pool *pgxpool.Pool) {
+	Pool = pool // Incoming pool is assigned to the global variable
 }
 
 // GetAbouts function retrieves all "about" records from the database and returns them as JSON
 func GetAbouts(c *gin.Context) {
-	rows, err := Conn.Query(context.Background(), "SELECT id, content FROM about") // SQL query is executed
+	rows, err := Pool.Query(context.Background(), "SELECT id, content FROM about") // SQL query is executed
 	if err != nil {
 		fmt.Println(err)                                                                      // If there is an error, print to terminal
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Data could not be retrieved"}) // Return HTTP 500 error as JSON
@@ -57,7 +57,7 @@ func DeleteAbout(c *gin.Context) {
 		return
 	}
 
-	_, err = Conn.Exec(context.Background(), "DELETE FROM about WHERE id=$1", id) // Execute delete query
+	_, err = Pool.Exec(context.Background(), "DELETE FROM about WHERE id=$1", id) // Execute delete query
 	if err != nil {
 		fmt.Println(err)                                                                  // Print error
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Delete operation failed"}) // Return 500 if failed
@@ -76,7 +76,7 @@ func UpdateAbout(c *gin.Context) {
 		return
 	}
 
-	_, err := Conn.Exec(context.Background(), "UPDATE about SET content=$1 WHERE id=$2", a.Content, a.ID) // Execute update query
+	_, err := Pool.Exec(context.Background(), "UPDATE about SET content=$1 WHERE id=$2", a.Content, a.ID) // Execute update query
 	if err != nil {
 		fmt.Println("Database update error:", err)                              // Print error
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Update failed"}) // Return 500 if failed
@@ -95,7 +95,7 @@ func CreateAbout(c *gin.Context) {
 		return
 	}
 
-	_, err := Conn.Exec(context.Background(), "INSERT INTO about (content) VALUES ($1)", a.Content) // Execute insert query
+	_, err := Pool.Exec(context.Background(), "INSERT INTO about (content) VALUES ($1)", a.Content) // Execute insert query
 	if err != nil {
 		fmt.Println("Database insert error:", err)                                          // Print error
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Record could not be added"}) // Return 500 if failed

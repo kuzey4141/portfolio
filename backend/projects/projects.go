@@ -1,27 +1,26 @@
-package projects // projects package
+package projects
 
 import (
-	"context" // context for DB operations
-	"fmt"     // for printing to console
-	"strconv" // for string-int conversions
+	"context" // Context for DB operations
+	"fmt"     // For printing to console
+	"strconv" // For string-int conversions
 
-	"github.com/gin-gonic/gin" // Gin framework
-
-	"github.com/jackc/pgx/v5" // PostgreSQL library
+	"github.com/gin-gonic/gin"        // Gin framework
+	"github.com/jackc/pgx/v5/pgxpool" // PostgreSQL pool library
 )
 
 // Project struct represents the data in the projects table
 type Project struct {
-	ID          int    `json:"id"`          // shown as id in JSON
-	Name        string `json:"name"`        // shown as name in JSON
-	Description string `json:"description"` // shown as description in JSON
-	Message     string `json:"message"`     // shown as message in JSON
+	ID          int    `json:"id"`          // Shown as id in JSON
+	Name        string `json:"name"`        // Shown as name in JSON
+	Description string `json:"description"` // Shown as description in JSON
+	Message     string `json:"message"`     // Shown as message in JSON
 }
 
-var Conn *pgx.Conn // Global database connection
+var Pool *pgxpool.Pool // Global database pool
 
-func SetDB(conn *pgx.Conn) {
-	Conn = conn // Set the global connection
+func SetDB(pool *pgxpool.Pool) {
+	Pool = pool // Set the global pool
 }
 
 // DeleteProject Gin handler: For delete operation
@@ -33,7 +32,7 @@ func DeleteProject(c *gin.Context) {
 		return
 	}
 
-	_, err = Conn.Exec(context.Background(), "DELETE FROM projects WHERE id=$1", id) // Delete query
+	_, err = Pool.Exec(context.Background(), "DELETE FROM projects WHERE id=$1", id) // Delete query
 	if err != nil {
 		c.JSON(500, gin.H{"error": "Delete operation failed"}) // Return JSON error if DB error
 		return
@@ -44,7 +43,7 @@ func DeleteProject(c *gin.Context) {
 
 // GetProjects returns all projects as JSON
 func GetProjects(c *gin.Context) {
-	rows, err := Conn.Query(context.Background(), "SELECT id, name, description, message FROM projects") // message field eklendi
+	rows, err := Pool.Query(context.Background(), "SELECT id, name, description, message FROM projects") // Message field added
 	if err != nil {
 		c.JSON(500, gin.H{"error": "Data could not be retrieved"}) // Return JSON error if failed
 		return
@@ -54,7 +53,7 @@ func GetProjects(c *gin.Context) {
 	var projects []Project
 	for rows.Next() {
 		var p Project
-		if err := rows.Scan(&p.ID, &p.Name, &p.Description, &p.Message); err != nil { // Message olarak değişti
+		if err := rows.Scan(&p.ID, &p.Name, &p.Description, &p.Message); err != nil { // Changed to Message
 			c.JSON(500, gin.H{"error": "Could not read row"}) // Row read error
 			return
 		}
@@ -80,7 +79,7 @@ func UpdateProject(c *gin.Context) {
 	}
 
 	sql := `UPDATE projects SET name=$1, description=$2, message=$3 WHERE id=$4`
-	_, err = Conn.Exec(context.Background(), sql, p.Name, p.Description, p.Message, id) // Message olarak değişti
+	_, err = Pool.Exec(context.Background(), sql, p.Name, p.Description, p.Message, id) // Changed to Message
 	if err != nil {
 		c.JSON(500, gin.H{"error": "Update failed"}) // DB error
 		return
@@ -97,9 +96,9 @@ func CreateProject(c *gin.Context) {
 		return
 	}
 
-	_, err := Conn.Exec(context.Background(),
+	_, err := Pool.Exec(context.Background(),
 		"INSERT INTO projects (name, description, message) VALUES ($1, $2, $3)",
-		p.Name, p.Description, p.Message) // Message olarak değişti
+		p.Name, p.Description, p.Message) // Changed to Message
 	if err != nil {
 		c.JSON(500, gin.H{"error": "Record could not be added"}) // Return error if failed
 		return

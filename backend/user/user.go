@@ -4,19 +4,19 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"portfolio/auth" // Yeni eklenen auth package
+	"portfolio/auth" // Auth package import
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool" // PostgreSQL pool library
 )
 
 // User struct represents data in the users table
 type User struct {
-	ID       int    `json:"id"`                 // id field in JSON
-	Username string `json:"username"`           // username field in JSON
-	Password string `json:"password,omitempty"` // password in JSON (shown empty if not provided)
-	Email    string `json:"email"`              // email in JSON
+	ID       int    `json:"id"`                 // ID field in JSON
+	Username string `json:"username"`           // Username field in JSON
+	Password string `json:"password,omitempty"` // Password in JSON (shown empty if not provided)
+	Email    string `json:"email"`              // Email in JSON
 }
 
 // LoginRequest struct for login endpoint
@@ -32,55 +32,55 @@ type LoginResponse struct {
 	User    User   `json:"user"`
 }
 
-var Conn *pgx.Conn
+var Pool *pgxpool.Pool
 
-func SetDB(conn *pgx.Conn) {
-	Conn = conn
+func SetDB(pool *pgxpool.Pool) {
+	Pool = pool
 }
 
-// Login function - Yeni eklenen giriş fonksiyonu
+// Login function - Authentication login function
 func Login(c *gin.Context) {
 	var loginReq LoginRequest
 
-	// JSON'dan veriyi al
+	// Get data from JSON
 	if err := c.ShouldBindJSON(&loginReq); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Geçersiz veri formatı"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid data format"})
 		return
 	}
 
-	// Kullanıcıyı veritabanından bul
+	// Find user in database
 	var user User
-	err := Conn.QueryRow(context.Background(),
+	err := Pool.QueryRow(context.Background(),
 		"SELECT id, username, password, email FROM users WHERE username=$1",
 		loginReq.Username).Scan(&user.ID, &user.Username, &user.Password, &user.Email)
 
 	if err != nil {
-		fmt.Println("Kullanıcı bulunamadı:", err)
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Kullanıcı adı veya şifre yanlış"})
+		fmt.Println("User not found:", err)
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid username or password"})
 		return
 	}
 
-	// Şifreyi kontrol et
+	// Check password
 	if err := auth.CheckPassword(user.Password, loginReq.Password); err != nil {
-		fmt.Println("Şifre yanlış:", err)
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Kullanıcı adı veya şifre yanlış"})
+		fmt.Println("Wrong password:", err)
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid username or password"})
 		return
 	}
 
-	// JWT token oluştur
+	// Generate JWT token
 	token, err := auth.GenerateToken(user.ID, user.Username)
 	if err != nil {
-		fmt.Println("Token oluşturma hatası:", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Token oluşturulamadı"})
+		fmt.Println("Token generation error:", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not generate token"})
 		return
 	}
 
-	// Şifreyi response'da gönderme
+	// Don't send password in response
 	user.Password = ""
 
-	// Başarılı giriş response'u
+	// Successful login response
 	response := LoginResponse{
-		Message: "Giriş başarılı",
+		Message: "Login successful",
 		Token:   token,
 		User:    user,
 	}
@@ -97,7 +97,7 @@ func DeleteUser(c *gin.Context) {
 		return
 	}
 
-	_, err = Conn.Exec(context.Background(), "DELETE FROM users WHERE id=$1", id)
+	_, err = Pool.Exec(context.Background(), "DELETE FROM users WHERE id=$1", id)
 	if err != nil {
 		c.JSON(500, gin.H{"error": "Delete operation failed"})
 		return
@@ -108,7 +108,7 @@ func DeleteUser(c *gin.Context) {
 
 // GetUsers returns the list of users (excluding password)
 func GetUsers(c *gin.Context) {
-	rows, err := Conn.Query(context.Background(), "SELECT id, username, email FROM users")
+	rows, err := Pool.Query(context.Background(), "SELECT id, username, email FROM users")
 	if err != nil {
 		c.JSON(500, gin.H{"error": "Data could not be retrieved"})
 		return
@@ -136,15 +136,15 @@ func UpdateUser(c *gin.Context) {
 		return
 	}
 
-	// Eğer şifre varsa hash'le
+	// If password exists, hash it
 	if u.Password != "" {
 		hashedPassword, err := auth.HashPassword(u.Password)
 		if err != nil {
-			c.JSON(500, gin.H{"error": "Şifre hashlenemedi"})
+			c.JSON(500, gin.H{"error": "Could not hash password"})
 			return
 		}
 
-		_, err = Conn.Exec(context.Background(),
+		_, err = Pool.Exec(context.Background(),
 			"UPDATE users SET username=$1, email=$2, password=$3 WHERE id=$4",
 			u.Username, u.Email, hashedPassword, u.ID)
 		if err != nil {
@@ -152,7 +152,7 @@ func UpdateUser(c *gin.Context) {
 			return
 		}
 	} else {
-		_, err := Conn.Exec(context.Background(),
+		_, err := Pool.Exec(context.Background(),
 			"UPDATE users SET username=$1, email=$2 WHERE id=$3",
 			u.Username, u.Email, u.ID)
 		if err != nil {
@@ -172,14 +172,14 @@ func CreateUser(c *gin.Context) {
 		return
 	}
 
-	// Şifreyi hash'le
+	// Hash password
 	hashedPassword, err := auth.HashPassword(u.Password)
 	if err != nil {
-		c.JSON(500, gin.H{"error": "Şifre hashlenemedi"})
+		c.JSON(500, gin.H{"error": "Could not hash password"})
 		return
 	}
 
-	_, err = Conn.Exec(context.Background(),
+	_, err = Pool.Exec(context.Background(),
 		"INSERT INTO users (username, password, email) VALUES ($1, $2, $3)",
 		u.Username, hashedPassword, u.Email)
 	if err != nil {

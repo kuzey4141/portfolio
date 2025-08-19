@@ -1,52 +1,57 @@
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import '../assets/styles/Contact.scss';
-// import emailjs from '@emailjs/browser';
-import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
-import SendIcon from '@mui/icons-material/Send';
-import TextField from '@mui/material/TextField';
+import { apiService } from '../services/api';
 
 function Contact() {
-
   const [name, setName] = useState<string>('');
   const [email, setEmail] = useState<string>('');
+  const [phone, setPhone] = useState<string>('');
   const [message, setMessage] = useState<string>('');
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [successMessage, setSuccessMessage] = useState<string>('');
+  const [errorMessage, setErrorMessage] = useState<string>('');
 
-  const [nameError, setNameError] = useState<boolean>(false);
-  const [emailError, setEmailError] = useState<boolean>(false);
-  const [messageError, setMessageError] = useState<boolean>(false);
-
-  const form = useRef();
-
-  const sendEmail = (e: any) => {
+  const sendEmail = async (e: any) => {
     e.preventDefault();
-
-    setNameError(name === '');
-    setEmailError(email === '');
-    setMessageError(message === '');
-
-    /* Uncomment below if you want to enable the emailJS */
-
-    // if (name !== '' && email !== '' && message !== '') {
-    //   var templateParams = {
-    //     name: name,
-    //     email: email,
-    //     message: message
-    //   };
-
-    //   console.log(templateParams);
-    //   emailjs.send('service_id', 'template_id', templateParams, 'api_key').then(
-    //     (response) => {
-    //       console.log('SUCCESS!', response.status, response.text);
-    //     },
-    //     (error) => {
-    //       console.log('FAILED...', error);
-    //     },
-    //   );
-    //   setName('');
-    //   setEmail('');
-    //   setMessage('');
-    // }
+    
+    // Clear previous messages
+    setSuccessMessage('');
+    setErrorMessage('');
+    
+    // Validation
+    if (!name.trim() || !email.trim() || !phone.trim() || !message.trim()) {
+      setErrorMessage('❌ Please fill all fields!');
+      return;
+    }
+    
+    setIsLoading(true);
+    
+    try {
+      const contactData = {
+        name: name.trim(),
+        email: email.trim(),
+        phone: phone.trim(),
+        message: message.trim()
+      };
+      
+      const response = await apiService.sendContact(contactData);
+      
+      if (response.message) {
+        setSuccessMessage('✅ Message sent successfully! I\'ll get back to you soon.');
+        // Clear form
+        setName('');
+        setEmail('');
+        setPhone('');
+        setMessage('');
+      } else {
+        setErrorMessage('❌ Failed to send message. Please try again.');
+      }
+    } catch (error) {
+      console.error('Contact form error:', error);
+      setErrorMessage('❌ Failed to send message. Please check your connection and try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -55,58 +60,130 @@ function Contact() {
         <div className="contact_wrapper">
           <h1>Contact Me</h1>
           <p>Got a project waiting to be realized? Let's collaborate and make it happen!</p>
-          <Box
-            ref={form}
-            component="form"
-            noValidate
-            autoComplete="off"
-            className='contact-form'
-          >
-            <div className='form-flex'>
-              <TextField
-                required
-                id="outlined-required"
-                label="Your Name"
-                placeholder="What's your name?"
+          
+          {/* Success/Error Messages */}
+          {successMessage && (
+            <div style={{ 
+              backgroundColor: '#d4edda', 
+              color: '#155724', 
+              padding: '15px', 
+              borderRadius: '5px', 
+              marginBottom: '20px',
+              border: '1px solid #c3e6cb'
+            }}>
+              {successMessage}
+            </div>
+          )}
+          {errorMessage && (
+            <div style={{ 
+              backgroundColor: '#f8d7da', 
+              color: '#721c24', 
+              padding: '15px', 
+              borderRadius: '5px', 
+              marginBottom: '20px',
+              border: '1px solid #f5c6cb'
+            }}>
+              {errorMessage}
+            </div>
+          )}
+          
+          <form className='contact-form' onSubmit={sendEmail}>
+            <div className='form-flex' style={{ display: 'flex', gap: '20px', marginBottom: '20px' }}>
+              <input
+                type="text"
+                placeholder="Your Name *"
                 value={name}
-                onChange={(e) => {
-                  setName(e.target.value);
-                }}
-                error={nameError}
-                helperText={nameError ? "Please enter your name" : ""}
-              />
-              <TextField
+                onChange={(e) => setName(e.target.value)}
+                disabled={isLoading}
                 required
-                id="outlined-required"
-                label="Email / Phone"
-                placeholder="How can I reach you?"
-                value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value);
+                style={{
+                  flex: 1,
+                  padding: '15px',
+                  fontSize: '16px',
+                  border: '1px solid #ccc',
+                  borderRadius: '5px',
+                  backgroundColor: isLoading ? '#f5f5f5' : 'white'
                 }}
-                error={emailError}
-                helperText={emailError ? "Please enter your email or phone number" : ""}
+              />
+              <input
+                type="email"
+                placeholder="Email *"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={isLoading}
+                required
+                style={{
+                  flex: 1,
+                  padding: '15px',
+                  fontSize: '16px',
+                  border: '1px solid #ccc',
+                  borderRadius: '5px',
+                  backgroundColor: isLoading ? '#f5f5f5' : 'white'
+                }}
               />
             </div>
-            <TextField
-              required
-              id="outlined-multiline-static"
-              label="Message"
-              placeholder="Send me any inquiries or questions"
-              multiline
-              rows={10}
-              className="body-form"
-              value={message}
-              onChange={(e) => {
-                setMessage(e.target.value);
+            
+            <div style={{ marginBottom: '20px' }}>
+              <input
+                type="tel"
+                placeholder="Phone *"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                disabled={isLoading}
+                required
+                style={{
+                  width: '100%',
+                  padding: '15px',
+                  fontSize: '16px',
+                  border: '1px solid #ccc',
+                  borderRadius: '5px',
+                  backgroundColor: isLoading ? '#f5f5f5' : 'white',
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
+            
+            <div style={{ marginBottom: '20px' }}>
+              <textarea
+                placeholder="Message *"
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                disabled={isLoading}
+                required
+                rows={8}
+                style={{
+                  width: '100%',
+                  padding: '15px',
+                  fontSize: '16px',
+                  border: '1px solid #ccc',
+                  borderRadius: '5px',
+                  backgroundColor: isLoading ? '#f5f5f5' : 'white',
+                  boxSizing: 'border-box',
+                  resize: 'vertical',
+                  fontFamily: 'inherit'
+                }}
+              />
+            </div>
+            
+            <button 
+              type="submit"
+              disabled={isLoading}
+              style={{
+                backgroundColor: isLoading ? '#6c757d' : '#007bff',
+                color: 'white',
+                padding: '12px 30px',
+                fontSize: '16px',
+                border: 'none',
+                borderRadius: '5px',
+                cursor: isLoading ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px'
               }}
-              error={messageError}
-              helperText={messageError ? "Please enter the message" : ""}
-            />
-            <Button variant="contained" endIcon={<SendIcon />} onClick={sendEmail}>
-              Send
-            </Button>
-          </Box>
+            >
+              {isLoading ? 'Sending...' : 'Send ➤'}
+            </button>
+          </form>
         </div>
       </div>
     </div>

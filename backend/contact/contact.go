@@ -1,28 +1,29 @@
-package contact // Defined as contact package
+package contact
 
 import (
 	"context"        // For context in database operations
 	"fmt"            // For printing and formatting to console
 	"net/http"       // For HTTP status codes
-	"portfolio/mail" // Mail package import - ÖNEMLİ!
+	"portfolio/mail" // Mail package import
 	"strconv"        // For string-integer conversion
 
-	"github.com/gin-gonic/gin" // Gin framework usage
-	"github.com/jackc/pgx/v5"  // PostgreSQL connection library
+	"github.com/gin-gonic/gin"        // Gin framework usage
+	"github.com/jackc/pgx/v5/pgxpool" // PostgreSQL connection pool library
 )
 
 // Contact struct represents the contact table
 type Contact struct {
 	ID      int    `json:"id"`      // ID field, sent as "id" in JSON
+	Name    string `json:"name"`    // Name field, sent as "name" in JSON
 	Email   string `json:"email"`   // Email field, sent as "email" in JSON
 	Phone   string `json:"phone"`   // Phone number, sent as "phone" in JSON
 	Message string `json:"message"` // Message content, sent as "message" in JSON
 }
 
-var Conn *pgx.Conn // Global database connection is stored
+var Pool *pgxpool.Pool // Global database pool is stored
 
-func SetDB(conn *pgx.Conn) {
-	Conn = conn // The incoming connection is assigned to the global Conn variable
+func SetDB(pool *pgxpool.Pool) {
+	Pool = pool // The incoming pool is assigned to the global Pool variable
 }
 
 func DeleteContact(c *gin.Context) {
@@ -34,7 +35,7 @@ func DeleteContact(c *gin.Context) {
 		return
 	}
 
-	_, err = Conn.Exec(context.Background(), "DELETE FROM contact WHERE id=$1", id) // Execute delete query
+	_, err = Pool.Exec(context.Background(), "DELETE FROM contact WHERE id=$1", id) // Execute delete query
 	if err != nil {
 		fmt.Println("Delete error:", err)                                                 // Print error to console
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Delete operation failed"}) // Return 500 Internal Server Error
@@ -45,7 +46,7 @@ func DeleteContact(c *gin.Context) {
 }
 
 func GetContacts(c *gin.Context) {
-	rows, err := Conn.Query(context.Background(), "SELECT id, email, phone, message FROM contact") // Fetch all contact records
+	rows, err := Pool.Query(context.Background(), "SELECT id, name, email, phone, message FROM contact") // Fetch all contact records
 	if err != nil {
 		fmt.Println("Data fetch error:", err)                                                 // Print error to console
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Data could not be retrieved"}) // Return 500
@@ -56,7 +57,7 @@ func GetContacts(c *gin.Context) {
 	var contacts []Contact // List of Contact structs
 	for rows.Next() {      // Loop row by row
 		var cct Contact
-		if err := rows.Scan(&cct.ID, &cct.Email, &cct.Phone, &cct.Message); err != nil {
+		if err := rows.Scan(&cct.ID, &cct.Name, &cct.Email, &cct.Phone, &cct.Message); err != nil {
 			fmt.Println("Error reading row:", err)                                          // Print error to console
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Row could not be read"}) // Return 500
 			return
@@ -75,9 +76,9 @@ func UpdateContact(c *gin.Context) {
 		return
 	}
 
-	_, err := Conn.Exec(context.Background(),
-		"UPDATE contact SET email=$1, phone=$2, message=$3 WHERE id=$4",
-		contact.Email, contact.Phone, contact.Message, contact.ID) // Execute update query
+	_, err := Pool.Exec(context.Background(),
+		"UPDATE contact SET name=$1, email=$2, phone=$3, message=$4 WHERE id=$5",
+		contact.Name, contact.Email, contact.Phone, contact.Message, contact.ID) // Execute update query
 	if err != nil {
 		fmt.Println("Database update error:", err)                              // Print error to console
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Update failed"}) // Return 500
@@ -97,18 +98,18 @@ func CreateContact(c *gin.Context) {
 	}
 
 	// Insert into database first
-	_, err := Conn.Exec(context.Background(),
-		"INSERT INTO contact (email, phone, message) VALUES ($1, $2, $3)",
-		contact.Email, contact.Phone, contact.Message) // Execute insert query
+	_, err := Pool.Exec(context.Background(),
+		"INSERT INTO contact (name, email, phone, message) VALUES ($1, $2, $3, $4)",
+		contact.Name, contact.Email, contact.Phone, contact.Message) // Execute insert query
 	if err != nil {
 		fmt.Println("Database insert error:", err)                                          // Print error to console
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Record could not be added"}) // Return 500
 		return
 	}
 
-	// Send email notification - YENİ ÖZELLİK!
+	// Send email notification
 	mailData := mail.ContactMailData{
-		Name:    "Contact Form", // Contact formunda name field'ı yoksa default
+		Name:    contact.Name,
 		Email:   contact.Email,
 		Phone:   contact.Phone,
 		Message: contact.Message,
@@ -117,7 +118,7 @@ func CreateContact(c *gin.Context) {
 	// Send mail (error handling but don't block the response)
 	if mailErr := mail.SendContactMail(mailData); mailErr != nil {
 		fmt.Printf("Mail sending failed: %v\n", mailErr)
-		// Mail hatası olsa bile contact kaydedildi, başarılı response döner
+		// Even if mail fails, contact was saved, return success response
 	} else {
 		fmt.Println("Contact mail sent successfully!")
 	}
