@@ -25,13 +25,30 @@ function App() {
     
     useEffect(() => {
         window.scrollTo({top: 0, left: 0, behavior: 'smooth'});
-      }, []);
+    }, []);
       
     // Check for admin URL
     useEffect(() => {
-        if (window.location.pathname === '/admin') {
-            setShowAdmin(true);
-        }
+        const checkAdminRoute = () => {
+            if (window.location.pathname === '/admin' || window.location.hash === '#admin') {
+                setShowAdmin(true);
+            }
+        };
+        
+        checkAdminRoute();
+        
+        // Listen for hash changes
+        const handleHashChange = () => {
+            checkAdminRoute();
+        };
+        
+        window.addEventListener('hashchange', handleHashChange);
+        window.addEventListener('popstate', handleHashChange);
+        
+        return () => {
+            window.removeEventListener('hashchange', handleHashChange);
+            window.removeEventListener('popstate', handleHashChange);
+        };
     }, []);
     
     if (showAdmin) {
