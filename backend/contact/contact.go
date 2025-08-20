@@ -6,6 +6,7 @@ import (
 	"net/http"       // For HTTP status codes
 	"portfolio/mail" // Mail package import
 	"strconv"        // For string-integer conversion
+	"time"           // For time.Time type
 
 	"github.com/gin-gonic/gin"        // Gin framework usage
 	"github.com/jackc/pgx/v5/pgxpool" // PostgreSQL connection pool library
@@ -13,11 +14,12 @@ import (
 
 // Contact struct represents the contact table
 type Contact struct {
-	ID      int    `json:"id"`      // ID field, sent as "id" in JSON
-	Name    string `json:"name"`    // Name field, sent as "name" in JSON
-	Email   string `json:"email"`   // Email field, sent as "email" in JSON
-	Phone   string `json:"phone"`   // Phone number, sent as "phone" in JSON
-	Message string `json:"message"` // Message content, sent as "message" in JSON
+	ID        int       `json:"id"`         // ID field, sent as "id" in JSON
+	Name      string    `json:"name"`       // Name field, sent as "name" in JSON
+	Email     string    `json:"email"`      // Email field, sent as "email" in JSON
+	Phone     string    `json:"phone"`      // Phone number, sent as "phone" in JSON
+	Message   string    `json:"message"`    // Message content, sent as "message" in JSON
+	CreatedAt time.Time `json:"created_at"` // Created timestamp, sent as "created_at" in JSON
 }
 
 var Pool *pgxpool.Pool // Global database pool is stored
@@ -46,7 +48,8 @@ func DeleteContact(c *gin.Context) {
 }
 
 func GetContacts(c *gin.Context) {
-	rows, err := Pool.Query(context.Background(), "SELECT id, name, email, phone, message FROM contact") // Fetch all contact records
+	// SELECT query to fetch created_at field as well
+	rows, err := Pool.Query(context.Background(), "SELECT id, name, email, phone, message, created_at FROM contact ORDER BY created_at DESC")
 	if err != nil {
 		fmt.Println("Data fetch error:", err)                                                 // Print error to console
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Data could not be retrieved"}) // Return 500
@@ -57,7 +60,8 @@ func GetContacts(c *gin.Context) {
 	var contacts []Contact // List of Contact structs
 	for rows.Next() {      // Loop row by row
 		var cct Contact
-		if err := rows.Scan(&cct.ID, &cct.Name, &cct.Email, &cct.Phone, &cct.Message); err != nil {
+		// Scan including created_at field as time.Time
+		if err := rows.Scan(&cct.ID, &cct.Name, &cct.Email, &cct.Phone, &cct.Message, &cct.CreatedAt); err != nil {
 			fmt.Println("Error reading row:", err)                                          // Print error to console
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Row could not be read"}) // Return 500
 			return
@@ -65,7 +69,8 @@ func GetContacts(c *gin.Context) {
 		contacts = append(contacts, cct) // Add to list
 	}
 
-	c.JSON(http.StatusOK, contacts) // Return all records as JSON
+	fmt.Printf("Found %d contacts in database\n", len(contacts)) // Debug log
+	c.JSON(http.StatusOK, contacts)                              // Return all records as JSON
 }
 
 func UpdateContact(c *gin.Context) {
@@ -97,7 +102,7 @@ func CreateContact(c *gin.Context) {
 		return
 	}
 
-	// Insert into database first
+	// Insert into database first (created_at will be set automatically by database)
 	_, err := Pool.Exec(context.Background(),
 		"INSERT INTO contact (name, email, phone, message) VALUES ($1, $2, $3, $4)",
 		contact.Name, contact.Email, contact.Phone, contact.Message) // Execute insert query
