@@ -3,7 +3,7 @@ import GitHubIcon from '@mui/icons-material/GitHub';
 import LinkedInIcon from '@mui/icons-material/LinkedIn';
 import '../assets/styles/Main.scss';
 import { apiService, Home } from '../services/api';
-import profileImage from '../assets/images/profile.png';
+import profileImage from '../assets/images/bugrakuzey.png';
 
 function Main() {
   const [homeData, setHomeData] = useState<Home | null>(null);
@@ -62,7 +62,7 @@ function Main() {
       <div className="about-section">
         <div className="image-wrapper">
           <img 
-            src={profileImage} 
+            src={profileImage}
             alt="Avatar" 
             style={{
               width: '200px',
