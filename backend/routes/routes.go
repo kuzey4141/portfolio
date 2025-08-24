@@ -15,7 +15,18 @@ import (
 func SetupRoutes(r *gin.Engine, dbPool *pgxpool.Pool) { // Changed parameter type
 	// CORS settings - MUST BE AT THE TOP
 	r.Use(func(c *gin.Context) {
-		c.Header("Access-Control-Allow-Origin", "*")
+		origin := c.Request.Header.Get("Origin")
+		allowedOrigins := []string{
+			"http://localhost:3000",
+			"http://portfolio-kuzey-2025.s3-website.eu-central-1.amazonaws.com",
+		}
+
+		for _, allowedOrigin := range allowedOrigins {
+			if origin == allowedOrigin {
+				c.Header("Access-Control-Allow-Origin", origin)
+				break
+			}
+		}
 		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		c.Header("Access-Control-Allow-Headers", "Content-Type, Authorization")
 		c.Header("Access-Control-Allow-Credentials", "false")

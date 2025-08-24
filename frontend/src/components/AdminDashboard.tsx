@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { LogOut, MessageSquare, Home, FolderOpen, User, Edit, Trash2, Save, Plus, TrendingUp, BarChart3, Activity } from 'lucide-react';
 import { apiService, Contact as ApiContact } from '../services/api';
 import AdminProjects from './AdminProjects';
+import { API_BASE_URL } from '../config'; 
 
 interface Contact {
   id: number;
@@ -64,7 +65,7 @@ const AdminDashboard = ({ onLogout }: AdminDashboardProps): JSX.Element => {
       if (activeTab === 'contacts') {
         console.log('Loading contacts with token:', token ? 'Token exists' : 'No token');
         
-        const response = await fetch('http://localhost:8081/api/admin/contact', {
+        const response = await fetch(`${API_BASE_URL}/admin/contact`, { 
           method: 'GET',
           headers: { 
             'Authorization': `Bearer ${token}`,
@@ -81,7 +82,6 @@ const AdminDashboard = ({ onLogout }: AdminDashboardProps): JSX.Element => {
         const data = await response.json();
         console.log('Contacts data received:', data);
         
-        // Check if data is an array
         if (Array.isArray(data)) {
           setContacts(data);
           console.log('Contacts set to state:', data.length, 'items');
@@ -119,7 +119,7 @@ const AdminDashboard = ({ onLogout }: AdminDashboardProps): JSX.Element => {
   const deleteContact = async (id: number): Promise<void> => {
     try {
       const token = localStorage.getItem('authToken');
-      await fetch(`http://localhost:8081/api/admin/contact/${id}`, {
+      await fetch(`${API_BASE_URL}/admin/contact/${id}`, { 
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -133,7 +133,7 @@ const AdminDashboard = ({ onLogout }: AdminDashboardProps): JSX.Element => {
   const updateHome = async (formData: UpdateFormData): Promise<void> => {
     try {
       const token = localStorage.getItem('authToken');
-      await fetch('http://localhost:8081/api/admin/home', {
+      await fetch(`${API_BASE_URL}/admin/home`, { 
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -152,7 +152,7 @@ const AdminDashboard = ({ onLogout }: AdminDashboardProps): JSX.Element => {
   const updateAbout = async (formData: UpdateFormData): Promise<void> => {
     try {
       const token = localStorage.getItem('authToken');
-      await fetch('http://localhost:8081/api/admin/about', {
+      await fetch(`${API_BASE_URL}/admin/about`, { 
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

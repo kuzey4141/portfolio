@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Upload, Github, ExternalLink, Edit, Trash2, Plus, Save, X, Image as ImageIcon } from 'lucide-react';
+import { API_BASE_URL } from '../config'; 
 
 interface Project {
   id?: number;
@@ -28,12 +29,27 @@ const AdminProjects: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [message, setMessage] = useState<string>('');
 
-  const getToken = () => localStorage.getItem('authToken');
+  // API base'ini son slash'ı atarak güvene al
+  const API = (API_BASE_URL || '').replace(/\/$/, '');
+
+  const getToken = () => (typeof window !== 'undefined' ? localStorage.getItem('authToken') : null);
+
+  const safeJson = async (res: Response) => {
+    try {
+      return await res.json();
+    } catch {
+      return null;
+    }
+  };
 
   const fetchProjects = async () => {
     try {
-      const response = await fetch('http://localhost:8081/api/projects');
-      const data = await response.json();
+      const response = await fetch(`${API}/projects`, { credentials: 'include' });
+      if (!response.ok) {
+        const errData = await safeJson(response);
+        throw new Error(errData?.error || `Fetch failed with ${response.status}`);
+      }
+      const data = await safeJson(response);
       console.log('Fetched projects:', data);
       setProjects(Array.isArray(data) ? data : []);
     } catch (error) {
@@ -45,6 +61,7 @@ const AdminProjects: React.FC = () => {
 
   useEffect(() => {
     fetchProjects();
+    
   }, []);
 
   const resetForm = () => {
@@ -75,8 +92,8 @@ const AdminProjects: React.FC = () => {
 
     try {
       const url = isEditing 
-        ? `http://localhost:8081/api/admin/projects/${currentProject.id}`
-        : 'http://localhost:8081/api/admin/projects';
+        ? `${API}/admin/projects/${currentProject.id}`
+        : `${API}/admin/projects`;
       
       const method = isEditing ? 'PUT' : 'POST';
 
@@ -89,7 +106,7 @@ const AdminProjects: React.FC = () => {
         body: JSON.stringify(currentProject)
       });
 
-      const result = await response.json();
+      const result = await safeJson(response);
       
       if (response.ok) {
         setMessage(isEditing ? '✅ Project updated successfully!' : '✅ Project added successfully!');
@@ -97,7 +114,7 @@ const AdminProjects: React.FC = () => {
         resetForm();
         setTimeout(() => setMessage(''), 3000);
       } else {
-        setMessage(`❌ Error: ${result.error || 'Operation failed'}`);
+        setMessage(`❌ Error: ${result?.error || `Operation failed (${response.status})`}`);
       }
     } catch (error) {
       console.error('Save error:', error);
@@ -125,21 +142,21 @@ const AdminProjects: React.FC = () => {
     }
 
     try {
-      const response = await fetch(`http://localhost:8081/api/admin/projects/${id}`, {
+      const response = await fetch(`${API}/admin/projects/${id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
 
-      const result = await response.json();
+      const result = await safeJson(response);
       
       if (response.ok) {
         setMessage('✅ Project deleted successfully!');
         fetchProjects();
         setTimeout(() => setMessage(''), 3000);
       } else {
-        setMessage(`❌ Error: ${result.error || 'Delete failed'}`);
+        setMessage(`❌ Error: ${result?.error || `Delete failed (${response.status})`}`);
       }
     } catch (error) {
       console.error('Delete error:', error);
