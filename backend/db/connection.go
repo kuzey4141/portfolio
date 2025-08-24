@@ -11,15 +11,19 @@ var Pool *pgxpool.Pool // Use pool instead of single connection
 
 // ConnectDB function establishes the connection with pool
 func ConnectDB() {
-	connStr := "postgres://postgres:046804@localhost:5432/portfolio?sslmode=disable&pool_max_conns=10&pool_min_conns=2" // Pool settings added
+	connStr := "postgresql://postgres:6303523aA@portfolyo.cdcik488ur35.eu-central-1.rds.amazonaws.com:5432/portfolio"
+
+	log.Println("Attempting to connect to database...")
+	log.Printf("Connection string: %s", connStr)
 
 	var err error
-	Pool, err = pgxpool.New(context.Background(), connStr) // Use connection pool
+	Pool, err = pgxpool.New(context.Background(), connStr)
 	if err != nil {
 		log.Fatalf("Error connecting to the database: %v", err)
 	}
 
-	// Test the connection
+	log.Println("Pool created, testing connection...")
+
 	if err := Pool.Ping(context.Background()); err != nil {
 		log.Fatalf("Error pinging database: %v", err)
 	}

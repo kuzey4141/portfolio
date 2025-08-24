@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://localhost:8081/api';
+const API_BASE_URL = 'http://3.78.181.203:8081/api';
 
 // Interface for contact form submission (frontend to backend)
 export interface ContactForm {
