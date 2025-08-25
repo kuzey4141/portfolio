@@ -5,6 +5,7 @@ import (
 	"os"
 	"portfolio/db"
 	"portfolio/routes"
+	"portfolio/server"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -12,20 +13,36 @@ import (
 
 func main() {
 
-	if err := godotenv.Load(); err != nil {
-		log.Printf("Error loading .env file: %v", err)
-	} else {
-		log.Println(".env file loaded successfully!")
+	if os.Getenv("GIN_MODE") == "release" {
+		gin.SetMode(gin.ReleaseMode)
 	}
 
-	log.Printf("RESEND_API_KEY length: %d", len(os.Getenv("RESEND_API_KEY")))
-	log.Printf("TO_EMAIL: %s", os.Getenv("TO_EMAIL"))
+	if err := godotenv.Load(); err != nil {
+		log.Printf("Error loading .env file: %v", err)
+	}
+
+	server.StartFrontend()
 
 	db.ConnectDB()
-	defer db.Pool.Close() // Close pool when program exits
+	defer db.Pool.Close()
 
 	r := gin.Default()
 	routes.SetupRoutes(r, db.Pool)
 
-	r.Run(":8081")
+	server.SetupStaticFiles(r)
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8081"
+	}
+
+	log.Printf("Server starting on port %s", port)
+	if gin.Mode() == gin.DebugMode {
+		log.Println("Backend: http://localhost:" + port)
+		log.Println("Frontend: http://localhost:3000")
+	} else {
+		log.Println("Application: http://localhost:" + port)
+	}
+
+	r.Run(":" + port)
 }

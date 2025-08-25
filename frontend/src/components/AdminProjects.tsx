@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, Github, ExternalLink, Edit, Trash2, Plus, Save, X, Image as ImageIcon } from 'lucide-react';
-import { API_BASE_URL } from '../config'; 
+import { Github, ExternalLink, Edit, Trash2, Plus, Save, X, ImageIcon } from 'lucide-react';
 
 interface Project {
   id?: number;
@@ -29,8 +28,8 @@ const AdminProjects: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [message, setMessage] = useState<string>('');
 
-  // API base'ini son slash'ı atarak güvene al
-  const API = (API_BASE_URL || '').replace(/\/$/, '');
+  // Fixed API URL
+  const API_BASE = "http://3.78.181.203:8081";
 
   const getToken = () => (typeof window !== 'undefined' ? localStorage.getItem('authToken') : null);
 
@@ -44,24 +43,37 @@ const AdminProjects: React.FC = () => {
 
   const fetchProjects = async () => {
     try {
-      const response = await fetch(`${API}/projects`, { credentials: 'include' });
+      console.log('Fetching projects from:', `${API_BASE}/api/projects`);
+      
+      const response = await fetch(`${API_BASE}/api/projects`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      console.log('Fetch response status:', response.status);
+      
       if (!response.ok) {
         const errData = await safeJson(response);
         throw new Error(errData?.error || `Fetch failed with ${response.status}`);
       }
+      
       const data = await safeJson(response);
-      console.log('Fetched projects:', data);
+      console.log('Fetched projects data:', data);
+      
       setProjects(Array.isArray(data) ? data : []);
+      setMessage(`✅ Loaded ${data?.length || 0} projects`);
+      setTimeout(() => setMessage(''), 2000);
     } catch (error) {
       console.error('Failed to fetch projects:', error);
-      setMessage('Error loading projects');
+      setMessage('❌ Error loading projects: ' + (error instanceof Error ? error.message : 'Unknown error'));
       setProjects([]);
     }
   };
 
   useEffect(() => {
     fetchProjects();
-    
   }, []);
 
   const resetForm = () => {
@@ -85,17 +97,20 @@ const AdminProjects: React.FC = () => {
 
     const token = getToken();
     if (!token) {
-      setMessage('Please login first');
+      setMessage('❌ Please login first');
       setLoading(false);
       return;
     }
 
     try {
       const url = isEditing 
-        ? `${API}/admin/projects/${currentProject.id}`
-        : `${API}/admin/projects`;
+        ? `${API_BASE}/api/admin/projects/${currentProject.id}`
+        : `${API_BASE}/api/admin/projects`;
       
       const method = isEditing ? 'PUT' : 'POST';
+
+      console.log(`Making ${method} request to:`, url);
+      console.log('Project data:', currentProject);
 
       const response = await fetch(url, {
         method,
@@ -106,7 +121,10 @@ const AdminProjects: React.FC = () => {
         body: JSON.stringify(currentProject)
       });
 
+      console.log('Save response status:', response.status);
+      
       const result = await safeJson(response);
+      console.log('Save response data:', result);
       
       if (response.ok) {
         setMessage(isEditing ? '✅ Project updated successfully!' : '✅ Project added successfully!');
@@ -125,6 +143,7 @@ const AdminProjects: React.FC = () => {
   };
 
   const handleEdit = (project: Project) => {
+    console.log('Editing project:', project);
     setCurrentProject(project);
     setIsEditing(true);
     setShowForm(true);
@@ -137,17 +156,21 @@ const AdminProjects: React.FC = () => {
 
     const token = getToken();
     if (!token) {
-      setMessage('Please login first');
+      setMessage('❌ Please login first');
       return;
     }
 
     try {
-      const response = await fetch(`${API}/admin/projects/${id}`, {
+      console.log('Deleting project:', id);
+      
+      const response = await fetch(`${API_BASE}/api/admin/projects/${id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
+
+      console.log('Delete response status:', response.status);
 
       const result = await safeJson(response);
       
@@ -165,24 +188,35 @@ const AdminProjects: React.FC = () => {
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 2 * 1024 * 1024) {
-        setMessage('❌ Image size should be less than 2MB');
+  const file = e.target.files?.[0];
+  if (file) {
+    
+    if (file.size > 5 * 1024 * 1024) { 
+      setMessage('❌ Image size should be less than 5MB');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64 = event.target?.result as string;
+
+      
+      if (base64.length > 7 * 1024 * 1024) { 
+        setMessage('❌ Encoded image is too large. Please use a smaller image.');
         return;
       }
 
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const base64 = event.target?.result as string;
-        setCurrentProject(prev => ({
-          ...prev,
-          image_url: base64
-        }));
-      };
-      reader.readAsDataURL(file);
-    }
-  };
+      setCurrentProject(prev => ({
+        ...prev,
+        image_url: base64
+      }));
+      setMessage('✅ Image uploaded');
+      setTimeout(() => setMessage(''), 2000);
+    };
+    reader.readAsDataURL(file);
+  }
+};
+
 
   return (
     <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
@@ -256,6 +290,24 @@ const AdminProjects: React.FC = () => {
           </button>
         </div>
       )}
+
+      {/* Refresh Button */}
+      <div style={{ marginBottom: '20px' }}>
+        <button
+          onClick={fetchProjects}
+          style={{
+            background: '#3b82f6',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            padding: '10px 20px',
+            fontSize: '14px',
+            cursor: 'pointer'
+          }}
+        >
+          🔄 Refresh Projects
+        </button>
+      </div>
 
       {/* Project Form */}
       {showForm && (
@@ -472,7 +524,7 @@ const AdminProjects: React.FC = () => {
                       <ImageIcon size={48} style={{ color: '#9ca3af' }} />
                       <div>
                         <p style={{ margin: '0 0 4px 0', color: '#374151', fontWeight: '500' }}>Upload Project Image</p>
-                        <p style={{ margin: 0, color: '#6b7280', fontSize: '14px' }}>PNG, JPG up to 2MB</p>
+                        <p style={{ margin: 0, color: '#6b7280', fontSize: '14px' }}>PNG, JPG up to 500KB</p>
                       </div>
                     </>
                   )}

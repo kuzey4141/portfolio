@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { LogOut, MessageSquare, Home, FolderOpen, User, Edit, Trash2, Save, Plus, TrendingUp, BarChart3, Activity } from 'lucide-react';
 import { apiService, Contact as ApiContact } from '../services/api';
 import AdminProjects from './AdminProjects';
-import { API_BASE_URL } from '../config'; 
 
 interface Contact {
   id: number;
@@ -53,6 +52,9 @@ const AdminDashboard = ({ onLogout }: AdminDashboardProps): JSX.Element => {
   const [editingHome, setEditingHome] = useState<boolean>(false);
   const [editingAbout, setEditingAbout] = useState<boolean>(false);
 
+  // Fixed API base URL
+  const API_BASE_URL = "http://3.78.181.203:8081/api";
+
   useEffect(() => {
     loadData();
   }, [activeTab]);
@@ -61,6 +63,8 @@ const AdminDashboard = ({ onLogout }: AdminDashboardProps): JSX.Element => {
     setLoading(true);
     try {
       const token = localStorage.getItem('authToken');
+      
+      console.log(`Loading data for tab: ${activeTab}`);
       
       if (activeTab === 'contacts') {
         console.log('Loading contacts with token:', token ? 'Token exists' : 'No token');
@@ -73,7 +77,7 @@ const AdminDashboard = ({ onLogout }: AdminDashboardProps): JSX.Element => {
           }
         });
         
-        console.log('Response status:', response.status);
+        console.log('Contacts response status:', response.status);
         
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
@@ -86,17 +90,45 @@ const AdminDashboard = ({ onLogout }: AdminDashboardProps): JSX.Element => {
           setContacts(data);
           console.log('Contacts set to state:', data.length, 'items');
         } else {
-          console.error('Data is not an array:', data);
+          console.error('Contacts data is not an array:', data);
           setContacts([]);
         }
       } else if (activeTab === 'projects') {
-        const data = await apiService.getProjects();
-        setProjects(data || []);
+        console.log('Loading projects from public endpoint...');
+        
+        // Use public projects endpoint - no token needed
+        const response = await fetch(`${API_BASE_URL}/projects`, { 
+          method: 'GET',
+          headers: { 
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        console.log('Projects response status:', response.status);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('Projects data received:', data);
+        
+        if (Array.isArray(data)) {
+          setProjects(data);
+          console.log('Projects set to state:', data.length, 'items');
+        } else {
+          console.error('Projects data is not an array:', data);
+          setProjects([]);
+        }
       } else if (activeTab === 'home') {
+        console.log('Loading home data...');
         const data = await apiService.getHome();
+        console.log('Home data received:', data);
         setHomeData(data[0] || null);
       } else if (activeTab === 'about') {
+        console.log('Loading about data...');
         const data = await apiService.getAbout();
+        console.log('About data received:', data);
         setAboutData(data[0] || null);
       }
     } catch (error) {
@@ -108,6 +140,7 @@ const AdminDashboard = ({ onLogout }: AdminDashboardProps): JSX.Element => {
   };
 
   const handleLogout = (): void => {
+    console.log('Logging out...');
     localStorage.removeItem('authToken');
     if (onLogout) {
       onLogout();
@@ -117,23 +150,39 @@ const AdminDashboard = ({ onLogout }: AdminDashboardProps): JSX.Element => {
   };
 
   const deleteContact = async (id: number): Promise<void> => {
+    if (!window.confirm('Are you sure you want to delete this contact?')) {
+      return;
+    }
+
     try {
+      console.log('Deleting contact:', id);
       const token = localStorage.getItem('authToken');
-      await fetch(`${API_BASE_URL}/admin/contact/${id}`, { 
+      const response = await fetch(`${API_BASE_URL}/admin/contact/${id}`, { 
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      setMessage('Contact deleted successfully');
-      loadData();
+      
+      console.log('Delete contact response status:', response.status);
+      
+      if (response.ok) {
+        setMessage('Contact deleted successfully');
+        loadData();
+        setTimeout(() => setMessage(''), 3000);
+      } else {
+        const errorData = await response.json();
+        setMessage(`Error deleting contact: ${errorData.error || 'Unknown error'}`);
+      }
     } catch (error) {
+      console.error('Delete contact error:', error);
       setMessage('Error deleting contact');
     }
   };
 
   const updateHome = async (formData: UpdateFormData): Promise<void> => {
     try {
+      console.log('Updating home data:', formData);
       const token = localStorage.getItem('authToken');
-      await fetch(`${API_BASE_URL}/admin/home`, { 
+      const response = await fetch(`${API_BASE_URL}/admin/home`, { 
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -141,18 +190,29 @@ const AdminDashboard = ({ onLogout }: AdminDashboardProps): JSX.Element => {
         },
         body: JSON.stringify(formData)
       });
-      setMessage('Home page updated successfully');
-      setEditingHome(false);
-      loadData();
+      
+      console.log('Update home response status:', response.status);
+      
+      if (response.ok) {
+        setMessage('Home page updated successfully');
+        setEditingHome(false);
+        loadData();
+        setTimeout(() => setMessage(''), 3000);
+      } else {
+        const errorData = await response.json();
+        setMessage(`Error updating home page: ${errorData.error || 'Unknown error'}`);
+      }
     } catch (error) {
+      console.error('Update home error:', error);
       setMessage('Error updating home page');
     }
   };
 
   const updateAbout = async (formData: UpdateFormData): Promise<void> => {
     try {
+      console.log('Updating about data:', formData);
       const token = localStorage.getItem('authToken');
-      await fetch(`${API_BASE_URL}/admin/about`, { 
+      const response = await fetch(`${API_BASE_URL}/admin/about`, { 
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -160,10 +220,20 @@ const AdminDashboard = ({ onLogout }: AdminDashboardProps): JSX.Element => {
         },
         body: JSON.stringify(formData)
       });
-      setMessage('About page updated successfully');
-      setEditingAbout(false);
-      loadData();
+      
+      console.log('Update about response status:', response.status);
+      
+      if (response.ok) {
+        setMessage('About page updated successfully');
+        setEditingAbout(false);
+        loadData();
+        setTimeout(() => setMessage(''), 3000);
+      } else {
+        const errorData = await response.json();
+        setMessage(`Error updating about page: ${errorData.error || 'Unknown error'}`);
+      }
     } catch (error) {
+      console.error('Update about error:', error);
       setMessage('Error updating about page');
     }
   };
@@ -235,20 +305,51 @@ const AdminDashboard = ({ onLogout }: AdminDashboardProps): JSX.Element => {
             <p style={{ fontSize: '14px', opacity: 0.9, margin: 0 }}>Check and manage contact form submissions</p>
           </button>
           
+          <button onClick={() => setActiveTab('projects')} style={{ padding: '24px', background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', color: 'white', borderRadius: '16px', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
+            <h4 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '8px' }}>🚀 Manage Projects</h4>
+            <p style={{ fontSize: '14px', opacity: 0.9, margin: 0 }}>Add, edit, and delete portfolio projects</p>
+          </button>
+          
           <button onClick={() => setActiveTab('home')} style={{ padding: '24px', background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', color: 'white', borderRadius: '16px', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
             <h4 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '8px' }}>🏠 Edit Home Page</h4>
             <p style={{ fontSize: '14px', opacity: 0.9, margin: 0 }}>Update your main page title and description</p>
           </button>
         </div>
       </div>
+
+      {/* Debug Info */}
+      <div style={{ background: '#f8f9fa', borderRadius: '12px', padding: '20px', marginTop: '20px', fontSize: '14px', color: '#6b7280' }}>
+        <h4 style={{ margin: '0 0 10px 0', color: '#374151' }}>Debug Info:</h4>
+        <p style={{ margin: '5px 0' }}>Contacts loaded: {contacts.length}</p>
+        <p style={{ margin: '5px 0' }}>Projects loaded: {projects.length}</p>
+        <p style={{ margin: '5px 0' }}>Home data: {homeData ? 'Loaded' : 'Not loaded'}</p>
+        <p style={{ margin: '5px 0' }}>About data: {aboutData ? 'Loaded' : 'Not loaded'}</p>
+        <p style={{ margin: '5px 0' }}>Auth token: {localStorage.getItem('authToken') ? 'Present' : 'Missing'}</p>
+      </div>
     </div>
   );
 
   const ContactsContent = (): JSX.Element => (
     <div style={{ padding: '32px' }}>
-      <h2 style={{ fontSize: '28px', fontWeight: '700', color: '#1f2937', marginBottom: '32px' }}>
-        💬 Contact Messages
-      </h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+        <h2 style={{ fontSize: '28px', fontWeight: '700', color: '#1f2937' }}>
+          💬 Contact Messages
+        </h2>
+        <button 
+          onClick={loadData}
+          style={{
+            background: '#3b82f6',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            padding: '10px 20px',
+            fontSize: '14px',
+            cursor: 'pointer'
+          }}
+        >
+          🔄 Refresh
+        </button>
+      </div>
       
       {contacts.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '80px 20px', background: 'white', borderRadius: '20px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
@@ -289,10 +390,26 @@ const AdminDashboard = ({ onLogout }: AdminDashboardProps): JSX.Element => {
     <div style={{ padding: '32px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
         <h2 style={{ fontSize: '28px', fontWeight: '700', color: '#1f2937' }}>🏠 Home Page Settings</h2>
-        <button onClick={() => setEditingHome(!editingHome)} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 20px', background: editingHome ? '#f59e0b' : '#3b82f6', color: 'white', border: 'none', borderRadius: '12px', cursor: 'pointer', fontSize: '14px', fontWeight: '600' }}>
-          <Edit size={16} />
-          {editingHome ? 'Cancel' : 'Edit'}
-        </button>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <button 
+            onClick={loadData}
+            style={{
+              background: '#3b82f6',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              padding: '10px 20px',
+              fontSize: '14px',
+              cursor: 'pointer'
+            }}
+          >
+            🔄 Refresh
+          </button>
+          <button onClick={() => setEditingHome(!editingHome)} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 20px', background: editingHome ? '#f59e0b' : '#3b82f6', color: 'white', border: 'none', borderRadius: '12px', cursor: 'pointer', fontSize: '14px', fontWeight: '600' }}>
+            <Edit size={16} />
+            {editingHome ? 'Cancel' : 'Edit'}
+          </button>
+        </div>
       </div>
       
       {homeData && (
@@ -310,11 +427,11 @@ const AdminDashboard = ({ onLogout }: AdminDashboardProps): JSX.Element => {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', color: '#374151', marginBottom: '8px' }}>Page Title</label>
-                  <input name="title" type="text" defaultValue={homeData.title} style={{ width: '100%', padding: '16px', border: '2px solid #e5e7eb', borderRadius: '12px', fontSize: '16px', outline: 'none' }} required />
+                  <input name="title" type="text" defaultValue={homeData.title} style={{ width: '100%', padding: '16px', border: '2px solid #e5e7eb', borderRadius: '12px', fontSize: '16px', outline: 'none', boxSizing: 'border-box' }} required />
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', color: '#374151', marginBottom: '8px' }}>Description</label>
-                  <textarea name="description" rows={4} defaultValue={homeData.description} style={{ width: '100%', padding: '16px', border: '2px solid #e5e7eb', borderRadius: '12px', fontSize: '16px', outline: 'none', resize: 'vertical' }} required />
+                  <textarea name="description" rows={4} defaultValue={homeData.description} style={{ width: '100%', padding: '16px', border: '2px solid #e5e7eb', borderRadius: '12px', fontSize: '16px', outline: 'none', resize: 'vertical', boxSizing: 'border-box' }} required />
                 </div>
                 <button type="submit" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '16px 24px', background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', color: 'white', border: 'none', borderRadius: '12px', cursor: 'pointer', fontSize: '16px', fontWeight: '600', alignSelf: 'flex-start' }}>
                   <Save size={16} />
@@ -336,6 +453,12 @@ const AdminDashboard = ({ onLogout }: AdminDashboardProps): JSX.Element => {
           )}
         </div>
       )}
+      
+      {!homeData && !loading && (
+        <div style={{ background: 'white', borderRadius: '20px', padding: '32px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', textAlign: 'center' }}>
+          <p style={{ color: '#6b7280', fontSize: '18px' }}>No home data found. Please refresh or check your database.</p>
+        </div>
+      )}
     </div>
   );
 
@@ -343,10 +466,26 @@ const AdminDashboard = ({ onLogout }: AdminDashboardProps): JSX.Element => {
     <div style={{ padding: '32px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
         <h2 style={{ fontSize: '28px', fontWeight: '700', color: '#1f2937' }}>👤 About Page Settings</h2>
-        <button onClick={() => setEditingAbout(!editingAbout)} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 20px', background: editingAbout ? '#f59e0b' : '#3b82f6', color: 'white', border: 'none', borderRadius: '12px', cursor: 'pointer', fontSize: '14px', fontWeight: '600' }}>
-          <Edit size={16} />
-          {editingAbout ? 'Cancel' : 'Edit'}
-        </button>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <button 
+            onClick={loadData}
+            style={{
+              background: '#3b82f6',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              padding: '10px 20px',
+              fontSize: '14px',
+              cursor: 'pointer'
+            }}
+          >
+            🔄 Refresh
+          </button>
+          <button onClick={() => setEditingAbout(!editingAbout)} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 20px', background: editingAbout ? '#f59e0b' : '#3b82f6', color: 'white', border: 'none', borderRadius: '12px', cursor: 'pointer', fontSize: '14px', fontWeight: '600' }}>
+            <Edit size={16} />
+            {editingAbout ? 'Cancel' : 'Edit'}
+          </button>
+        </div>
       </div>
       
       {aboutData && (
@@ -363,7 +502,7 @@ const AdminDashboard = ({ onLogout }: AdminDashboardProps): JSX.Element => {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', color: '#374151', marginBottom: '8px' }}>About Content</label>
-                  <textarea name="content" rows={8} defaultValue={aboutData.content} style={{ width: '100%', padding: '16px', border: '2px solid #e5e7eb', borderRadius: '12px', fontSize: '16px', outline: 'none', resize: 'vertical' }} required />
+                  <textarea name="content" rows={8} defaultValue={aboutData.content} style={{ width: '100%', padding: '16px', border: '2px solid #e5e7eb', borderRadius: '12px', fontSize: '16px', outline: 'none', resize: 'vertical', boxSizing: 'border-box' }} required />
                 </div>
                 <button type="submit" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '16px 24px', background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', color: 'white', border: 'none', borderRadius: '12px', cursor: 'pointer', fontSize: '16px', fontWeight: '600', alignSelf: 'flex-start' }}>
                   <Save size={16} />
@@ -381,6 +520,12 @@ const AdminDashboard = ({ onLogout }: AdminDashboardProps): JSX.Element => {
           )}
         </div>
       )}
+      
+      {!aboutData && !loading && (
+        <div style={{ background: 'white', borderRadius: '20px', padding: '32px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', textAlign: 'center' }}>
+          <p style={{ color: '#6b7280', fontSize: '18px' }}>No about data found. Please refresh or check your database.</p>
+        </div>
+      )}
     </div>
   );
 
@@ -390,6 +535,12 @@ const AdminDashboard = ({ onLogout }: AdminDashboardProps): JSX.Element => {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '400px', flexDirection: 'column' }}>
           <div style={{ width: '48px', height: '48px', border: '4px solid #f3f4f6', borderTop: '4px solid #3b82f6', borderRadius: '50%', animation: 'spin 1s linear infinite', marginBottom: '16px' }} />
           <p style={{ color: '#6b7280', fontSize: '16px' }}>Loading...</p>
+          <style>{`
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+          `}</style>
         </div>
       );
     }
