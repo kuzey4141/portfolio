@@ -16,7 +16,7 @@ function Main() {
         setLoading(true);
         const data = await apiService.getHome();
         
-        // Backend'den array gelir, ilk elemanı al
+        // The backend returns an array, so take the first item
         if (data && data.length > 0) {
           setHomeData(data[0]);
         } else {

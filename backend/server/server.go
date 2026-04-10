@@ -9,7 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// StartFrontend development modda frontend'i başlatır
+// StartFrontend starts the frontend in development mode
 func StartFrontend() {
 	if gin.Mode() != gin.DebugMode {
 		return
@@ -27,7 +27,7 @@ func StartFrontend() {
 	time.Sleep(2 * time.Second)
 }
 
-// SetupStaticFiles production modda static file serving ayarlar
+// SetupStaticFiles configures static file serving in production mode
 func SetupStaticFiles(r *gin.Engine) {
 	if gin.Mode() != gin.ReleaseMode {
 		return

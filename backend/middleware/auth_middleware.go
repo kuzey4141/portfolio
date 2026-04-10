@@ -8,58 +8,58 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// AuthMiddleware JWT token doğrulama middleware'i
+// AuthMiddleware validates the JWT token
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Authorization header'ını al
+		// Get the Authorization header
 		authHeader := c.GetHeader("Authorization")
 
-		// Header yoksa hata döndür
+		// Return an error if the header is missing
 		if authHeader == "" {
 			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": "Authorization header gerekli",
+				"error": "Authorization header is required",
 			})
-			c.Abort() // İsteği durdur, sonraki handler'lara gitme
+			c.Abort() // Stop the request and do not continue to the next handlers
 			return
 		}
 
-		// "Bearer token123456" formatında gelir
-		// "Bearer " kısmını çıkar, sadece token'ı al
+		// It comes in the format "Bearer token123456"
+		// Remove the "Bearer " part and keep only the token
 		tokenString := strings.Replace(authHeader, "Bearer ", "", 1)
 
-		// Token boşsa hata
+		// Return an error if the token is empty
 		if tokenString == "" {
 			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": "Token bulunamadı",
+				"error": "Token not found",
 			})
 			c.Abort()
 			return
 		}
 
-		// Token'ı doğrula (auth package'daki fonksiyonu kullan)
+		// Validate the token using the auth package function
 		claims, err := auth.ValidateToken(tokenString)
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": "Geçersiz veya süresi dolmuş token",
+				"error": "Invalid or expired token",
 			})
 			c.Abort()
 			return
 		}
 
-		// Token geçerliyse, kullanıcı bilgilerini context'e ekle
-		// Böylece sonraki handler'lar kullanıcı bilgilerine erişebilir
+		// If the token is valid, add user information to the context
+		// This lets the next handlers access the current user
 		c.Set("user_id", claims.UserID)
 		c.Set("username", claims.Username)
 
-		// Token geçerli, sonraki handler'a devam et
+		// Token is valid, continue to the next handler
 		c.Next()
 	}
 }
 
-// SuperAdminMiddleware - Sadece belirli kullanıcılar için
+// SuperAdminMiddleware - only for specific users
 func SuperAdminMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Önce normal auth kontrolü yapılmış olmalı
+		// Normal auth must have already run
 		username, exists := c.Get("username")
 		if !exists {
 			c.JSON(http.StatusUnauthorized, gin.H{
@@ -69,7 +69,7 @@ func SuperAdminMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		// Super admin kontrolü - sadece "admin" kullanıcısı
+		// Super admin check - only the "admin" user
 		if username != "admin" {
 			c.JSON(http.StatusForbidden, gin.H{
 				"error": "Super admin privileges required for user management",
@@ -78,12 +78,12 @@ func SuperAdminMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		// Super admin ise devam et
+		// Continue if the user is a super admin
 		c.Next()
 	}
 }
 
-// GetCurrentUser context'den kullanıcı bilgilerini al (helper function)
+// GetCurrentUser gets user information from the context (helper function)
 func GetCurrentUser(c *gin.Context) (userID int, username string, exists bool) {
 	userIDInterface, exists1 := c.Get("user_id")
 	usernameInterface, exists2 := c.Get("username")

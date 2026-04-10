@@ -12,7 +12,7 @@ function About() {
         setLoading(true);
         const data = await apiService.getAbout();
         
-        // Backend'den array gelir, ilk elemanı al
+        // The backend returns an array, so take the first item
         if (data && data.length > 0) {
           setAboutData(data[0]);
         } else {

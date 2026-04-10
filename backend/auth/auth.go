@@ -7,17 +7,17 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// JWT için secret key - EV!
+// Secret key for JWT - IMPORTANT!
 var jwtSecret = []byte("your-secret-key-change-this-in-production")
 
-// Claims struct - JWT token içindeki bilgiler
+// Claims struct - information stored in the JWT token
 type Claims struct {
 	UserID   int    `json:"user_id"`
 	Username string `json:"username"`
 	jwt.RegisteredClaims
 }
 
-// HashPassword şifreyi hashler
+// HashPassword hashes the password
 func HashPassword(password string) (string, error) {
 	hashedBytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
@@ -26,14 +26,14 @@ func HashPassword(password string) (string, error) {
 	return string(hashedBytes), nil
 }
 
-// CheckPassword hashlenmiş şifre ile girilen şifreyi karşılaştırır
+// CheckPassword compares the hashed password with the entered password
 func CheckPassword(hashedPassword, password string) error {
 	return bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password))
 }
 
-// GenerateToken JWT token oluşturur
+// GenerateToken creates a JWT token
 func GenerateToken(userID int, username string) (string, error) {
-	// Token 24 saat geçerli olacak
+	// Token will be valid for 24 hours
 	expirationTime := time.Now().Add(24 * time.Hour)
 
 	claims := &Claims{
@@ -49,7 +49,7 @@ func GenerateToken(userID int, username string) (string, error) {
 	return token.SignedString(jwtSecret)
 }
 
-// ValidateToken JWT token'ı doğrular
+// ValidateToken validates the JWT token
 func ValidateToken(tokenString string) (*Claims, error) {
 	claims := &Claims{}
 
