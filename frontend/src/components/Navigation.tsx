@@ -15,7 +15,6 @@ import ListItemButton from '@mui/material/ListItemButton';
 import ListItemText from '@mui/material/ListItemText';
 import MenuIcon from '@mui/icons-material/Menu';
 import Toolbar from '@mui/material/Toolbar';
-import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 
 const drawerWidth = 240;
 const navItems = [['Home', 'home'], ['About', 'about'], ['Projects', 'projects'], ['Contact', 'contact']];
@@ -27,10 +26,6 @@ function Navigation({parentToChild, modeChange}: any) {
 
   const handleDrawerToggle = () => {
     setMobileOpen((prevState) => !prevState);
-  };
-
-  const handleAdminClick = () => {
-    window.open('/admin', '_blank');
   };
 
   useEffect(() => {
@@ -72,12 +67,6 @@ function Navigation({parentToChild, modeChange}: any) {
             </ListItemButton>
           </ListItem>
         ))}
-        {/* Mobile Admin Button */}
-        <ListItem disablePadding>
-          <ListItemButton sx={{ textAlign: 'center' }} onClick={handleAdminClick}>
-            <ListItemText primary="Admin" />
-          </ListItemButton>
-        </ListItem>
       </List>
     </Box>
   );
@@ -149,38 +138,6 @@ function Navigation({parentToChild, modeChange}: any) {
                 {item[0]}
               </Button>
             ))}
-          </Box>
-
-          {/* Admin Button - Right */}
-          <Box sx={{ 
-            position: 'absolute', 
-            right: '20px',
-            display: { xs: 'none', sm: 'block' }
-          }}>
-            <Button
-              onClick={handleAdminClick}
-              sx={{
-                color: '#fff',
-                border: '1px solid rgba(255, 255, 255, 0.3)',
-                borderRadius: '20px',
-                padding: '6px 16px',
-                fontSize: '0.875rem',
-                fontWeight: '500',
-                textTransform: 'none',
-                background: 'linear-gradient(45deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05))',
-                backdropFilter: 'blur(10px)',
-                transition: 'all 0.3s ease',
-                '&:hover': {
-                  background: 'linear-gradient(45deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.1))',
-                  transform: 'translateY(-1px)',
-                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-                  borderColor: 'rgba(255, 255, 255, 0.5)'
-                }
-              }}
-              startIcon={<AdminPanelSettingsIcon sx={{ fontSize: '18px' }} />}
-            >
-              Admin
-            </Button>
           </Box>
         </Toolbar>
       </AppBar>
