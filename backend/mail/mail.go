@@ -19,7 +19,7 @@ func getEnvOrDefault(key, defaultValue string) string {
 // validateConfig checks if required environment variables are set
 func validateConfig() (string, string, string, error) {
 	apiKey := getEnvOrDefault("RESEND_API_KEY", "")
-	toEmail := getEnvOrDefault("TO_EMAIL", "dcnitro41@gmail.com")
+	toEmail := getEnvOrDefault("TO_EMAIL", "bkuzey.dev@gmail.com")
 	fromEmail := getEnvOrDefault("FROM_EMAIL", "onboarding@resend.dev")
 
 	if apiKey == "" {
