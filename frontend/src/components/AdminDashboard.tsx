@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { LogOut, MessageSquare, Home, FolderOpen, User, Edit, Trash2, Save, Plus, TrendingUp, BarChart3, Activity } from 'lucide-react';
 import { apiService, Contact as ApiContact } from '../services/api';
 import AdminProjects from './AdminProjects';
+import { API_BASE_URL } from '../config';
 
 interface Contact {
   id: number;
@@ -51,9 +52,6 @@ const AdminDashboard = ({ onLogout }: AdminDashboardProps): JSX.Element => {
   const [message, setMessage] = useState<string>('');
   const [editingHome, setEditingHome] = useState<boolean>(false);
   const [editingAbout, setEditingAbout] = useState<boolean>(false);
-
-  // Fixed API base URL
-  const API_BASE_URL = "http://3.78.181.203:8081/api";
 
   useEffect(() => {
     loadData();

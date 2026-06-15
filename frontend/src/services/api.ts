@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://3.78.181.203:8081/api';
+import { API_BASE_URL } from '../config';
 
 // Interface for contact form submission (frontend to backend)
 export interface ContactForm {

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Github, ExternalLink, Edit, Trash2, Plus, Save, X, ImageIcon } from 'lucide-react';
+import { API_ORIGIN } from '../config';
 
 interface Project {
   id?: number;
@@ -28,9 +29,6 @@ const AdminProjects: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [message, setMessage] = useState<string>('');
 
-  // Fixed API URL
-  const API_BASE = "http://3.78.181.203:8081";
-
   const getToken = () => (typeof window !== 'undefined' ? localStorage.getItem('authToken') : null);
 
   const safeJson = async (res: Response) => {
@@ -43,9 +41,9 @@ const AdminProjects: React.FC = () => {
 
   const fetchProjects = async () => {
     try {
-      console.log('Fetching projects from:', `${API_BASE}/api/projects`);
+      console.log('Fetching projects from:', `${API_ORIGIN}/api/projects`);
       
-      const response = await fetch(`${API_BASE}/api/projects`, {
+      const response = await fetch(`${API_ORIGIN}/api/projects`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json'
@@ -104,8 +102,8 @@ const AdminProjects: React.FC = () => {
 
     try {
       const url = isEditing 
-        ? `${API_BASE}/api/admin/projects/${currentProject.id}`
-        : `${API_BASE}/api/admin/projects`;
+        ? `${API_ORIGIN}/api/admin/projects/${currentProject.id}`
+        : `${API_ORIGIN}/api/admin/projects`;
       
       const method = isEditing ? 'PUT' : 'POST';
 
@@ -163,7 +161,7 @@ const AdminProjects: React.FC = () => {
     try {
       console.log('Deleting project:', id);
       
-      const response = await fetch(`${API_BASE}/api/admin/projects/${id}`, {
+      const response = await fetch(`${API_ORIGIN}/api/admin/projects/${id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`

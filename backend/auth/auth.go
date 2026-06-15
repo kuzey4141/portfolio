@@ -1,14 +1,20 @@
 package auth
 
 import (
+	"os"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 )
 
-// Secret key for JWT - IMPORTANT!
-var jwtSecret = []byte("your-secret-key-change-this-in-production")
+func jwtSecret() []byte {
+	secret := os.Getenv("JWT_SECRET")
+	if secret == "" {
+		secret = "dev-jwt-secret-change-me"
+	}
+	return []byte(secret)
+}
 
 // Claims struct - information stored in the JWT token
 type Claims struct {
@@ -46,7 +52,7 @@ func GenerateToken(userID int, username string) (string, error) {
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString(jwtSecret)
+	return token.SignedString(jwtSecret())
 }
 
 // ValidateToken validates the JWT token
@@ -54,7 +60,7 @@ func ValidateToken(tokenString string) (*Claims, error) {
 	claims := &Claims{}
 
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
-		return jwtSecret, nil
+		return jwtSecret(), nil
 	})
 
 	if err != nil || !token.Valid {

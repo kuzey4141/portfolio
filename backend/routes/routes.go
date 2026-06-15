@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"os"
 	"portfolio/about"
 	"portfolio/contact"
 	"portfolio/home"
@@ -16,19 +17,17 @@ func SetupRoutes(r *gin.Engine, dbPool *pgxpool.Pool) {
 	// CORS settings - Fixed for credentials
 	r.Use(func(c *gin.Context) {
 		origin := c.Request.Header.Get("Origin")
+		allowedOrigin := os.Getenv("FRONTEND_ORIGIN")
 
-		// Always set specific origin, never wildcard with credentials
-		if origin == "http://portfolio-kuzey-2025.s3-website.eu-central-1.amazonaws.com" ||
-			origin == "https://portfolio-kuzey-2025.s3-website.eu-central-1.amazonaws.com" {
+		if origin != "" && (origin == allowedOrigin ||
+			origin == "http://localhost:3000" ||
+			origin == "http://127.0.0.1:3000") {
 			c.Header("Access-Control-Allow-Origin", origin)
-		} else {
-			// For direct API calls without origin
-			c.Header("Access-Control-Allow-Origin", "http://portfolio-kuzey-2025.s3-website.eu-central-1.amazonaws.com")
 		}
 
 		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		c.Header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With")
-		c.Header("Access-Control-Allow-Credentials", "false") // Set to false to avoid wildcard issue
+		c.Header("Access-Control-Allow-Credentials", "false")
 
 		// Handle preflight OPTIONS requests
 		if c.Request.Method == "OPTIONS" {

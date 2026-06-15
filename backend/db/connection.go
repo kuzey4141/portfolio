@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"log"
+	"os"
 
 	"github.com/jackc/pgx/v5/pgxpool" // Use connection pool
 )
@@ -11,10 +12,12 @@ var Pool *pgxpool.Pool // Use pool instead of single connection
 
 // ConnectDB function establishes the connection with pool
 func ConnectDB() {
-	connStr := "postgresql://postgres:6303523aA@portfolyo.cdcik488ur35.eu-central-1.rds.amazonaws.com:5432/portfolio"
+	connStr := os.Getenv("DATABASE_URL")
+	if connStr == "" {
+		log.Fatal("DATABASE_URL environment variable is required")
+	}
 
 	log.Println("Attempting to connect to database...")
-	log.Printf("Connection string: %s", connStr)
 
 	var err error
 	Pool, err = pgxpool.New(context.Background(), connStr)

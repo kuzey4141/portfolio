@@ -7,8 +7,8 @@ A modern full-stack portfolio website built with Go backend and React frontend, 
 I'm Buğra Kuzey Deveci, a 22-year-old senior Management Information System student at Düzce University, based in Kocaeli, Turkey. I'm passionate about developing innovative digital solutions using modern web technologies, with expertise in full-stack development including React, TypeScript, Go, and PostgreSQL.
 
 ## Live Demo
-- Website: http://3.78.181.203
-- Admin Panel: http://3.78.181.203/admin
+- Website: Configure your deployment URL
+- Admin Panel: `/admin`
 
 ## Features
 
@@ -144,9 +144,8 @@ The application creates these tables:
 - `PUT /api/admin/about` - About page updates
 
 ## Admin Access
-- Username: admin
-- Password: admin123
-- Access: http://your-domain/admin
+- Create an admin user in the database after deployment.
+- Access: `http://your-domain/admin`
 
 ## Project Structure
 ```
